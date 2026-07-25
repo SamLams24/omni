@@ -1,4 +1,5 @@
 import sql from "@/app/api/utils/sql";
+import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
 
 export async function POST(request, { params }) {
   try {
@@ -25,13 +26,18 @@ export async function POST(request, { params }) {
       return Response.json({ error: "Cart already finalized" }, { status: 400 });
     }
 
-    await sql`UPDATE carts SET status = 'cancelled' WHERE id = ${id}`;
-
     // Refund escrow if held
     const escrowHold = await sql`
       SELECT id, buyer_id, amount, fee FROM escrow_holds
       WHERE cart_id = ${id} AND status = 'held'
     `;
+    if (escrowHold.length > 0) {
+      const disabled = requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS");
+      if (disabled) return disabled;
+    }
+
+    await sql`UPDATE carts SET status = 'cancelled' WHERE id = ${id}`;
+
     if (escrowHold.length > 0) {
       const refundAmount = parseFloat(escrowHold[0].amount) + parseFloat(escrowHold[0].fee);
       const buyerWallet = await sql`
