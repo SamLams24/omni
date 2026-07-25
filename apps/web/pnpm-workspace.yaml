@@ -1,0 +1,17 @@
+packages:
+  - .
+
+allowBuilds:
+  argon2: true
+  core-js: false
+  esbuild: true
+  sharp: true
+
+patchedDependencies:
+  react-router-hono-server@2.25.2: patches/react-router-hono-server@2.25.2.patch
+
+overrides:
+  next-themes: ^0.3.0
+  tar: ">=7.5.11"
+  kysely: ">=0.28.17"
+  better-auth: ">=1.4.17"
