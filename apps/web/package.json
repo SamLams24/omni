@@ -15,7 +15,7 @@
 		"test": "vitest",
 		"test:run": "vitest run",
 		"test:ui": "vitest --ui",
-		"ci": "pnpm typecheck && pnpm test:run && pnpm build"
+		"validate": "pnpm typecheck && pnpm test:run && pnpm build"
 	},
 	"dependencies": {
 		"@babel/generator": "^7.27.1",

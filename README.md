@@ -56,7 +56,7 @@ Before opening a pull request, run:
 
 ```bash
 cd apps/web
-pnpm ci
+pnpm validate
 ```
 
 ## Documentation
