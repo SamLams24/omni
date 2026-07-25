@@ -72,6 +72,10 @@ temp/
 # Build outputs
 build/
 out/
+.vercel/
+.vitest/
+.react-router/
+coverage/
 
 # React Native
 .expo/
@@ -102,6 +106,14 @@ ios/Pods/Flipper-RSocket
 
 # Other apps / experiments
 apps/nextjs/
+
+# Legacy nested copy: local generated and secret files
+omni/apps/**/.env
+omni/apps/**/.env.*
+!omni/apps/**/.env.example
+omni/apps/**/.vercel/
+omni/apps/**/.vitest/
+omni/apps/**/.react-router/
 
 # Temp files
 dofix.js
