@@ -1,5 +1,6 @@
 import sql from "@/app/api/utils/sql";
 import { getServerSession } from "@/lib/auth";
+import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
 
 export async function POST(request) {
   try {
@@ -33,6 +34,10 @@ export async function POST(request) {
     }
     if (cart[0].status !== 'pending') {
       return Response.json({ error: "Cart has already been responded to" }, { status: 400 });
+    }
+    if (cart[0].payment_method === 'escrow') {
+      const disabled = requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS");
+      if (disabled) return disabled;
     }
 
     // Check expiration

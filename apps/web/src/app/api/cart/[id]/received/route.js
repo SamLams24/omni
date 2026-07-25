@@ -1,4 +1,5 @@
 import sql from "@/app/api/utils/sql";
+import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
 
 export async function POST(request, { params }) {
   try {
@@ -26,16 +27,21 @@ export async function POST(request, { params }) {
       return Response.json({ error: "Cart cannot be marked as received" }, { status: 400 });
     }
 
-    await sql`
-      UPDATE carts SET status = 'completed', completed_at = CURRENT_TIMESTAMP
-      WHERE id = ${id}
-    `;
-
     // Release escrow to vendor
     const escrowHold = await sql`
       SELECT id, vendor_id, amount, fee FROM escrow_holds
       WHERE cart_id = ${id} AND status = 'held'
     `;
+    if (escrowHold.length > 0) {
+      const disabled = requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS");
+      if (disabled) return disabled;
+    }
+
+    await sql`
+      UPDATE carts SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+    `;
+
     if (escrowHold.length > 0) {
       const vendorId = escrowHold[0].vendor_id;
       const netAmount = parseFloat(escrowHold[0].amount);

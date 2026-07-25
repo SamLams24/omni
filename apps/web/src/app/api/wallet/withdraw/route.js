@@ -1,4 +1,5 @@
 import sql from "@/app/api/utils/sql";
+import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
 
 const ensureUser = async (userId) => {
   const uniqueId = userId.replace(/-/g, '');
@@ -11,6 +12,9 @@ const ensureUser = async (userId) => {
 
 export async function POST(request) {
   try {
+    const disabled = requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS");
+    if (disabled) return disabled;
+
     const userId = request.headers.get("x-user-id");
     if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
