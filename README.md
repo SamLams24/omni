@@ -40,17 +40,24 @@ financial operations must not be considered production-ready.
 
 ## Local development
 
-Dependency lockfiles are currently being normalized. Until that work is
-completed, installs may not be reproducible across npm, pnpm, and Bun.
-
-The intended application entry point is:
+Omni web uses Node.js 22 and pnpm 11.7.0. From the repository root:
 
 ```bash
+corepack enable
 cd apps/web
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
 Never commit local `.env` files. Start from `apps/web/.env.example` and keep
 real values in the deployment platform or your local secret store.
+
+Before opening a pull request, run:
+
+```bash
+cd apps/web
+pnpm validate
+```
 
 ## Documentation
 
