@@ -61,9 +61,7 @@ export default function CartHistory() {
         return;
       }
 
-      const res = await fetch("/api/cart/history", {
-        headers: { "x-user-id": userId },
-      });
+      const res = await fetch("/api/cart/history");
 
       if (!res.ok) throw new Error("Failed to load carts");
       const data = await res.json();
@@ -204,7 +202,7 @@ export default function CartHistory() {
                             const userId = (() => { try { const u = localStorage.getItem("omni_user"); return u ? JSON.parse(u).id : null; } catch { return null; } })();
                             if (!userId) return;
                             const res = await fetch(`/api/cart/${cart.id}/received`, {
-                              method: "POST", headers: { "x-user-id": userId },
+                              method: "POST",
                             });
                             if (res.ok) { toast("Commande marquée reçue"); fetchCarts(); }
                             else { toast("Erreur"); }
@@ -220,7 +218,7 @@ export default function CartHistory() {
                             const userId = (() => { try { const u = localStorage.getItem("omni_user"); return u ? JSON.parse(u).id : null; } catch { return null; } })();
                             if (!userId) return;
                             const res = await fetch(`/api/cart/${cart.id}/cancel`, {
-                              method: "POST", headers: { "x-user-id": userId },
+                              method: "POST",
                             });
                             if (res.ok) { toast("Commande annulée"); fetchCarts(); }
                             else { toast("Erreur"); }
@@ -239,7 +237,7 @@ export default function CartHistory() {
                           const userId = (() => { try { const u = localStorage.getItem("omni_user"); return u ? JSON.parse(u).id : null; } catch { return null; } })();
                           if (!userId) return;
                           const res = await fetch(`/api/cart/${cart.id}/cancel`, {
-                            method: "POST", headers: { "x-user-id": userId },
+                            method: "POST",
                           });
                           if (res.ok) { toast("Commande annulée"); fetchCarts(); }
                           else { toast("Erreur"); }

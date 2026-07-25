@@ -1,13 +1,13 @@
 import sql from "@/app/api/utils/sql";
-import { getServerSession } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request) {
   try {
-    const session = await getServerSession(request);
-    const userId = session?.data?.user?.id || request.headers.get("x-user-id");
-    if (!userId) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
     const body = await request.json();
     const { facilityId, rating, comment } = body;

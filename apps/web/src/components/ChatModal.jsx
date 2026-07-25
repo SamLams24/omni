@@ -37,9 +37,7 @@ export default function ChatModal({
       const params = requestId
         ? `requestId=${requestId}`
         : `vendorId=${vendorId}`;
-      const response = await fetch(`/api/chat/messages?${params}`, {
-        headers: user ? { 'x-user-id': user.id } : {},
-      });
+      const response = await fetch(`/api/chat/messages?${params}`);
       if (!response.ok) throw new Error("Failed to load messages");
 
       const data = await response.json();
@@ -57,10 +55,7 @@ export default function ChatModal({
     try {
       const response = await fetch("/api/chat/messages", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(user ? { 'x-user-id': user.id } : {}),
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           requestId: requestId || null,
           vendorId: vendorId || null,

@@ -1,9 +1,13 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = user.id;
 
     const carts = await sql`
       SELECT c.id, c.status, c.payment_method, c.note, c.created_at, c.expires_at,

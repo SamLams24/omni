@@ -30,13 +30,9 @@ export default function NotificationBell() {
   const loadNotifications = async () => {
     const storedUser = localStorage.getItem("omni_user");
     if (!storedUser) return;
-    
-    const userId = JSON.parse(storedUser).id;
-    
+
     try {
-      const res = await fetch("/api/notifications", {
-        headers: { 'x-user-id': userId }
-      });
+      const res = await fetch("/api/notifications");
       const data = await res.json();
       setNotifications(data.notifications || []);
       setUnreadCount(data.unread_count || 0);
@@ -46,12 +42,8 @@ export default function NotificationBell() {
   };
 
   const markAsRead = async (id) => {
-    const storedUser = localStorage.getItem("omni_user");
-    const userId = JSON.parse(storedUser).id;
-    
     await fetch(`/api/notifications?id=${id}`, {
-      method: "PUT",
-      headers: { 'x-user-id': userId }
+      method: "PUT"
     });
     loadNotifications();
   };
