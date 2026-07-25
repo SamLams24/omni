@@ -1,1 +1,0 @@
-{"version":"3.2.4","results":[[":test/api.test.js",{"duration":25.088999999999942,"failed":false}],[":test/components.test.js",{"duration":0,"failed":true}],[":test/cart.test.js",{"duration":16.099699999998847,"failed":false}],[":test/delivery.test.js",{"duration":13.809300000000803,"failed":false}],[":test/components.test.jsx",{"duration":69.20420000000013,"failed":false}]]}
