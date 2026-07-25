@@ -1,20 +1,15 @@
 import sql from "@/app/api/utils/sql";
-import { getServerSession } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
 
 export async function POST(request) {
   try {
-    let userId;
-    const headerUserId = request.headers.get("x-user-id");
-    if (headerUserId) {
-      userId = headerUserId;
-    } else {
-      const session = await getServerSession(request);
-      if (!session?.data?.user?.id) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
-      }
-      userId = session.data.user.id;
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
+
     const body = await request.json();
     const { cartId, items, confirmAll } = body;
 

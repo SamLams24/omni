@@ -37,10 +37,9 @@ export default function RespondModal({ cart, onClose, onDone }) {
   const confirmAll = async () => {
     setSending(true);
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const res = await fetch("/api/cart/respond", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cartId: cart.id, confirmAll: true }),
       });
       if (!res.ok) throw new Error();
@@ -52,10 +51,9 @@ export default function RespondModal({ cart, onClose, onDone }) {
   const sendResponse = async () => {
     setSending(true);
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const res = await fetch("/api/cart/respond", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           cartId: cart.id,
           items: items.map(i => ({

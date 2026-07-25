@@ -16,7 +16,7 @@ export default function ReviewForm({ facilityId, onSubmitted }) {
       if (!userId) { toast("Connecte-toi d'abord"); return; }
       const res = await fetch("/api/reviews", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ facilityId, rating, comment }),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error); }

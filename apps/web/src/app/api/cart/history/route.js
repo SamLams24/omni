@@ -1,13 +1,13 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    console.log("[cart/history] userId:", userId);
+    const userId = user.id;
 
     const carts = await sql`
       SELECT 
@@ -30,8 +30,6 @@ export async function GET(request) {
       ORDER BY c.created_at DESC
       LIMIT 50
     `;
-
-    console.log("[cart/history] carts found:", carts.length);
 
     const cartIds = carts.map(c => c.id);
     let allRequests = [];
@@ -56,17 +54,14 @@ export async function GET(request) {
         ORDER BY ar.created_at ASC
       `;
 
-      console.log("[cart/history] requests found:", allRequests.length);
-
       try {
         allDeliveries = await sql`
           SELECT id, cart_id, status, dropoff_address, updated_at
           FROM delivery_requests
           WHERE cart_id = ANY(${cartIds})
         `;
-        console.log("[cart/history] deliveries found:", allDeliveries.length);
       } catch (delErr) {
-        console.error("[cart/history] delivery query failed:", delErr.message);
+        console.error("[cart/history] delivery query failed");
       }
     }
 
@@ -89,7 +84,7 @@ export async function GET(request) {
 
     return Response.json({ carts: result });
   } catch (error) {
-    console.error("[cart/history] UNCAUGHT:", error.message, error.stack);
+    console.error("[cart/history] request failed");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
