@@ -1,35 +1,24 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { name, category, description, lat, lon, products, userId, phone } = body;
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = user.id;
 
-    console.log('[Create Vendor] Request:', { name, category, lat, lon, userId });
+    const body = await request.json();
+    const { name, category, description, lat, lon, products, phone } = body;
+
+    console.log('[Create Vendor] Request:', { name, category, lat, lon });
 
     if (!name || !category || !lat || !lon) {
       return Response.json(
         { error: "Missing required fields" },
         { status: 400 },
       );
-    }
-
-    if (!userId) {
-      console.log('[Create Vendor] No userId provided');
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Create user in users table if not exists (Neon Auth user)
-    const existingUser = await sql`
-      SELECT id FROM users WHERE id = ${userId}::uuid
-    `;
-    
-    if (existingUser.length === 0) {
-      console.log('[Create Vendor] Creating user in users table...');
-      await sql`
-        INSERT INTO users (id, name, email, phone, created_at)
-        VALUES (${userId}::uuid, 'User', 'user@example.com', ${phone || '+22800000000'}, CURRENT_TIMESTAMP)
-      `;
     }
 
     // Check if user already has a vendor

@@ -1,6 +1,3 @@
-// Neon Auth URL for server-side session verification
-const authUrl = 'https://ep-purple-fog-amwsyc3j.neonauth.c-5.us-east-1.aws.neon.tech/neondb/auth';
-
 import { neon, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
 
@@ -9,8 +6,13 @@ neonConfig.webSocketConstructor = ws;
 const dbUrl = process.env.DATABASE_URL;
 const sql = dbUrl ? neon(dbUrl) : null;
 
+function getAuthUrl() {
+  return process.env.NEON_AUTH_URL?.replace(/\/+$/, '') || null;
+}
+
 async function ensureAppUser(authUser) {
   if (!sql) return;
+
   try {
     const email = authUser.email || `${authUser.id.replace(/-/g, '')}@omni.app`;
     await sql`
@@ -21,47 +23,51 @@ async function ensureAppUser(authUser) {
             email = COALESCE(EXCLUDED.email, users.email),
             updated_at = CURRENT_TIMESTAMP
     `;
-  } catch (e) {
-    console.error('[Auth] Failed to sync user:', e.message);
+  } catch (error) {
+    console.error('[Auth] Failed to sync authenticated user');
   }
 }
 
 export async function getServerSession(request) {
-  let authUser = null;
-
-  // 1. Try cookie-based Neon Auth session first
+  const authUrl = getAuthUrl();
   const cookie = request.headers.get('cookie');
-  if (cookie) {
-    try {
-      const res = await fetch(`${authUrl}/get-session`, {
-        headers: { cookie },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.user?.id) {
-          authUser = data.user;
-        }
-      }
-    } catch {}
+
+  if (!authUrl || !cookie) {
+    return null;
   }
 
-  // 2. Fallback: x-user-id header WITH database validation
-  if (!authUser) {
-    const headerUserId = request.headers.get('x-user-id');
-    if (headerUserId) {
-      try {
-        const result = await sql`SELECT id, name, email FROM auth_users WHERE id = ${headerUserId}`;
-        if (result.length > 0) {
-          authUser = { id: headerUserId, name: result[0].name, email: result[0].email };
-        }
-      } catch {}
+  try {
+    const response = await fetch(`${authUrl}/get-session`, {
+      headers: {
+        accept: 'application/json',
+        cookie,
+      },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) {
+      return null;
     }
-  }
 
-  if (authUser) {
-    await ensureAppUser(authUser);
-    return { data: { user: authUser, session: {} } };
-  }
+    const data = await response.json();
+    if (!data?.user?.id) {
+      return null;
+    }
 
-  return null;
+    await ensureAppUser(data.user);
+    return {
+      data: {
+        user: data.user,
+        session: data.session || {},
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getAuthenticatedUser(request) {
+  const session = await getServerSession(request);
+  return session?.data?.user || null;
 }
