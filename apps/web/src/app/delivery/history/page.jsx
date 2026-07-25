@@ -10,8 +10,7 @@ export default function DeliveryHistory() {
   useEffect(() => {
     const load = async () => {
       try {
-        const userId = JSON.parse(localStorage.getItem("omni_user")).id;
-        const res = await fetch("/api/delivery/history", { headers: { "x-user-id": userId } });
+        const res = await fetch("/api/delivery/history");
         if (res.ok) {
           const data = await res.json();
           setDeliveries(data.deliveries || []);

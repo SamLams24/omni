@@ -1,15 +1,30 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
     const deliveries = await sql`
       SELECT dr.id, dr.cart_id, dr.status, dr.dropoff_address, dr.delivery_fee,
-        dr.distance_km, dr.created_at,
+        CASE
+          WHEN dr.pickup_lat IS NOT NULL
+            AND dr.pickup_lon IS NOT NULL
+            AND dr.dropoff_lat IS NOT NULL
+            AND dr.dropoff_lon IS NOT NULL
+          THEN ROUND((
+            ST_DistanceSphere(
+              ST_MakePoint(dr.pickup_lon, dr.pickup_lat),
+              ST_MakePoint(dr.dropoff_lon, dr.dropoff_lat)
+            ) / 1000
+          )::numeric, 1)
+          ELSE NULL
+        END as distance_km,
+        dr.created_at,
         f.name as facility_name, f.category as facility_category
       FROM delivery_requests dr
       JOIN facilities f ON f.id = dr.facility_id

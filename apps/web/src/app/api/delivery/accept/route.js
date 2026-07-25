@@ -1,11 +1,13 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
     const body = await request.json();
     const { requestId, tripId } = body;
@@ -15,10 +17,24 @@ export async function POST(request) {
     }
 
     const profile = await sql`
-      SELECT id FROM delivery_profiles WHERE user_id = ${userId}
+      SELECT id, is_active FROM delivery_profiles WHERE user_id = ${userId}
     `;
     if (profile.length === 0) {
       return Response.json({ error: "Register as delivery person first" }, { status: 400 });
+    }
+    if (!profile[0].is_active) {
+      return Response.json({ error: "Activate your delivery profile first" }, { status: 403 });
+    }
+
+    const ownedTrip = await sql`
+      SELECT id
+      FROM delivery_planned_trips
+      WHERE id = ${tripId}
+        AND delivery_profile_id = ${profile[0].id}
+        AND is_active = true
+    `;
+    if (ownedTrip.length === 0) {
+      return Response.json({ error: "Trip not found" }, { status: 404 });
     }
 
     // Free tier limit: max 3 deliveries/day
@@ -42,7 +58,11 @@ export async function POST(request) {
 
     // Get new request's pickup/dropoff
     const newReq = await sql`
-      SELECT pickup_location, dropoff_location FROM delivery_requests WHERE id = ${requestId}
+      SELECT pickup_lat, pickup_lon, dropoff_lat, dropoff_lon
+      FROM delivery_requests
+      WHERE id = ${requestId}
+        AND status = 'looking'
+        AND buyer_id <> ${userId}
     `;
     if (newReq.length === 0) {
       return Response.json({ error: "Request not found" }, { status: 404 });
@@ -50,27 +70,52 @@ export async function POST(request) {
 
     // Already matched deliveries for this profile → conflict detection
     const existing = await sql`
-      SELECT pickup_location, dropoff_location FROM delivery_requests
+      SELECT pickup_lat, pickup_lon, dropoff_lat, dropoff_lon
+      FROM delivery_requests
       WHERE delivery_profile_id = ${profile[0].id}
         AND status = 'matched'
         AND id != ${requestId}
     `;
 
     if (existing.length > 0) {
-      // Parse new request coords from PostGIS WKT: POINT(lon lat)
-      const parseWkt = (wkt) => {
-        const m = wkt.match(/POINT\(([\d.-]+) ([\d.-]+)\)/i);
-        return m ? { lon: parseFloat(m[1]), lat: parseFloat(m[2]) } : null;
+      const newPickup = {
+        lat: Number(newReq[0].pickup_lat),
+        lon: Number(newReq[0].pickup_lon),
+      };
+      const newDropoff = {
+        lat: Number(newReq[0].dropoff_lat),
+        lon: Number(newReq[0].dropoff_lon),
       };
 
-      const newPickup = parseWkt(newReq[0].pickup_location);
-      const newDropoff = parseWkt(newReq[0].dropoff_location);
-
-      if (newPickup && newDropoff) {
+      if (
+        newReq[0].pickup_lat != null
+        && newReq[0].pickup_lon != null
+        && newReq[0].dropoff_lat != null
+        && newReq[0].dropoff_lon != null
+        && Number.isFinite(newPickup.lat)
+        && Number.isFinite(newPickup.lon)
+        && Number.isFinite(newDropoff.lat)
+        && Number.isFinite(newDropoff.lon)
+      ) {
         for (const ex of existing) {
-          const exPickup = parseWkt(ex.pickup_location);
-          const exDropoff = parseWkt(ex.dropoff_location);
-          if (!exPickup || !exDropoff) continue;
+          const exPickup = {
+            lat: Number(ex.pickup_lat),
+            lon: Number(ex.pickup_lon),
+          };
+          const exDropoff = {
+            lat: Number(ex.dropoff_lat),
+            lon: Number(ex.dropoff_lon),
+          };
+          if (
+            ex.pickup_lat == null
+            || ex.pickup_lon == null
+            || ex.dropoff_lat == null
+            || ex.dropoff_lon == null
+            || !Number.isFinite(exPickup.lat)
+            || !Number.isFinite(exPickup.lon)
+            || !Number.isFinite(exDropoff.lat)
+            || !Number.isFinite(exDropoff.lon)
+          ) continue;
 
           // Vector angle check: direction of existing vs new
           const exDx = exDropoff.lon - exPickup.lon;

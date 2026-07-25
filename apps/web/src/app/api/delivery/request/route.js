@@ -1,11 +1,13 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
     const body = await request.json();
     const { cartId, dropoffLat, dropoffLon, dropoffAddress } = body;
@@ -21,6 +23,20 @@ export async function POST(request) {
     if (carts[0].buyer_id !== userId) return Response.json({ error: "Unauthorized" }, { status: 403 });
     if (carts[0].status !== 'confirmed' && carts[0].status !== 'partial') {
       return Response.json({ error: "Cart must be confirmed first" }, { status: 400 });
+    }
+
+    const existing = await sql`
+      SELECT id
+      FROM delivery_requests
+      WHERE cart_id = ${cartId}
+        AND status NOT IN ('delivered', 'cancelled')
+      LIMIT 1
+    `;
+    if (existing.length > 0) {
+      return Response.json(
+        { error: "An active delivery request already exists for this cart" },
+        { status: 409 },
+      );
     }
 
     // Get facility location for pickup

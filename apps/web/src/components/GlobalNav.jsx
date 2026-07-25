@@ -46,8 +46,7 @@ export default function GlobalNav() {
       try {
         const stored = localStorage.getItem("omni_user");
         if (!stored) { navigate("/auth"); return; }
-        const userId = JSON.parse(stored).id;
-        const res = await fetch("/api/vendors/my-vendor", { headers: { "x-user-id": userId } });
+        const res = await fetch("/api/vendors/my-vendor");
         if (!res.ok) { navigate("/vendor/onboarding"); return; }
         const data = await res.json();
         if (data.vendor) navigate("/vendor/dashboard");
@@ -57,8 +56,7 @@ export default function GlobalNav() {
       try {
         const stored = localStorage.getItem("omni_user");
         if (!stored) { navigate("/auth"); return; }
-        const userId = JSON.parse(stored).id;
-        const res = await fetch("/api/delivery/profile", { headers: { "x-user-id": userId } });
+        const res = await fetch("/api/delivery/profile");
         if (res.ok) {
           const data = await res.json();
           if (data.profile) navigate("/delivery/dashboard");

@@ -1,4 +1,5 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 function haversineDist(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -20,17 +21,25 @@ function pointToSegmentDist(px, py, ax, ay, bx, by) {
 
 export async function POST(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
     const { tripId } = await request.json();
     if (!tripId) {
       return Response.json({ error: "tripId required" }, { status: 400 });
     }
 
-    const trips = await sql`SELECT * FROM delivery_planned_trips WHERE id = ${tripId}`;
+    const trips = await sql`
+      SELECT dpt.*
+      FROM delivery_planned_trips dpt
+      JOIN delivery_profiles dp ON dp.id = dpt.delivery_profile_id
+      WHERE dpt.id = ${tripId}
+        AND dp.user_id = ${userId}
+        AND dpt.is_active = true
+    `;
     if (trips.length === 0) {
       return Response.json({ error: "Trip not found" }, { status: 404 });
     }
@@ -43,19 +52,30 @@ export async function POST(request) {
     ];
 
     const requests = await sql`
-      SELECT dr.*, f.name as facility_name,
-        ST_Y(f.location::geometry) as flon,
-        ST_X(f.location::geometry) as flat
+      SELECT
+        dr.id,
+        dr.cart_id,
+        dr.facility_id,
+        dr.pickup_lat,
+        dr.pickup_lon,
+        dr.dropoff_lat,
+        dr.dropoff_lon,
+        dr.dropoff_address,
+        dr.delivery_fee,
+        f.name as facility_name,
+        ST_Y(f.location::geometry) as facility_lat,
+        ST_X(f.location::geometry) as facility_lon
       FROM delivery_requests dr
       JOIN facilities f ON f.id = dr.facility_id
       WHERE dr.status = 'looking'
+        AND dr.buyer_id <> ${userId}
     `;
 
     const matches = [];
     for (const req of requests) {
       let minDist = Infinity;
-      const pickupLat = Number(req.pickup_lat || req.flat);
-      const pickupLon = Number(req.pickup_lon || req.flon);
+      const pickupLat = Number(req.pickup_lat || req.facility_lat);
+      const pickupLon = Number(req.pickup_lon || req.facility_lon);
       const dropoffLat = Number(req.dropoff_lat);
       const dropoffLon = Number(req.dropoff_lon);
 

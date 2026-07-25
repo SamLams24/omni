@@ -1,6 +1,18 @@
 import sql from "@/app/api/utils/sql";
 import { getAuthenticatedUser } from "@/lib/auth";
 
+function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+  const radiusKm = 6371;
+  const toRadians = (value) => value * Math.PI / 180;
+  const deltaLat = toRadians(lat2 - lat1);
+  const deltaLon = toRadians(lon2 - lon1);
+  const a = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(toRadians(lat1))
+    * Math.cos(toRadians(lat2))
+    * Math.sin(deltaLon / 2) ** 2;
+  return radiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export async function POST(request) {
   try {
     const user = await getAuthenticatedUser(request);
@@ -18,10 +30,30 @@ export async function POST(request) {
         { status: 400 },
       );
     }
+    if (
+      delivery
+      && (
+        dropoffLat == null
+        || dropoffLon == null
+        || dropoffLat === ""
+        || dropoffLon === ""
+        || !Number.isFinite(Number(dropoffLat))
+        || !Number.isFinite(Number(dropoffLon))
+        || Number(dropoffLat) < -90
+        || Number(dropoffLat) > 90
+        || Number(dropoffLon) < -180
+        || Number(dropoffLon) > 180
+      )
+    ) {
+      return Response.json(
+        { error: "dropoffLat and dropoffLon are required for delivery" },
+        { status: 400 },
+      );
+    }
 
     // Get facility and vendor info
     const facility = await sql`
-      SELECT f.id, f.vendor_id, f.vendor_id FROM facilities f WHERE f.id = ${facilityId}
+      SELECT f.id, f.vendor_id FROM facilities f WHERE f.id = ${facilityId}
     `;
     if (facility.length === 0) {
       return Response.json({ error: "Facility not found" }, { status: 404 });
@@ -96,26 +128,36 @@ export async function POST(request) {
     // Create delivery request if requested
     if (delivery) {
       const facilityLoc = await sql`
-        SELECT ST_AsText(location) as wkt FROM facilities WHERE id = ${facilityId}
+        SELECT
+          ST_Y(location::geometry) as lat,
+          ST_X(location::geometry) as lon
+        FROM facilities
+        WHERE id = ${facilityId}
       `;
-      const wkt = facilityLoc[0]?.wkt || "POINT(1.2228 6.1319)";
-      const m = wkt.match(/POINT\(([\d.-]+) ([\d.-]+)\)/i);
-      const pickupLon = m ? parseFloat(m[1]) : 1.2228;
-      const pickupLat = m ? parseFloat(m[2]) : 6.1319;
-
-      // Calculate delivery fee based on distance (mock: 500 + distance_km * 100)
-      const distKm = 1.0; // simplified for now
+      const pickupLat = Number(facilityLoc[0]?.lat);
+      const pickupLon = Number(facilityLoc[0]?.lon);
+      const dropLat = Number(dropoffLat);
+      const dropLon = Number(dropoffLon);
+      if (!Number.isFinite(pickupLat) || !Number.isFinite(pickupLon)) {
+        return Response.json(
+          { error: "Facility location is unavailable" },
+          { status: 409 },
+        );
+      }
+      const distKm = calculateDistanceKm(pickupLat, pickupLon, dropLat, dropLon);
       const deliveryFee = Math.max(500, Math.round(distKm * 100));
-      const dropLon = dropoffLon || 1.2228;
-      const dropLat = dropoffLat || 6.1319;
 
       await sql`
-        INSERT INTO delivery_requests (cart_id, buyer_id, vendor_id, facility_id, status,
-          pickup_location, dropoff_location, dropoff_address, distance_km, delivery_fee)
-        VALUES (${cartId}, ${userId}, ${vendorId}, ${facilityId}, 'looking',
-          ST_SetSRID(ST_MakePoint(${pickupLon}, ${pickupLat}), 4326),
-          ST_SetSRID(ST_MakePoint(${dropLon}, ${dropLat}), 4326),
-          ${dropoffAddress || null}, ${distKm}, ${deliveryFee})
+        INSERT INTO delivery_requests (
+          cart_id, buyer_id, facility_id, status,
+          pickup_lat, pickup_lon, dropoff_lat, dropoff_lon,
+          dropoff_address, delivery_fee
+        )
+        VALUES (
+          ${cartId}, ${userId}, ${facilityId}, 'looking',
+          ${pickupLat}, ${pickupLon}, ${dropLat}, ${dropLon},
+          ${dropoffAddress || null}, ${deliveryFee}
+        )
       `;
     }
 

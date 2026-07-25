@@ -1,11 +1,13 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
     const profile = await sql`
       SELECT id FROM delivery_profiles WHERE user_id = ${userId}
@@ -15,7 +17,7 @@ export async function GET(request) {
     }
 
     const deliveries = await sql`
-      SELECT dr.*, f.facility_name,
+      SELECT dr.*, f.name as facility_name,
         u.name as buyer_name
       FROM delivery_requests dr
       LEFT JOIN facilities f ON f.id = dr.facility_id

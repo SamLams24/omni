@@ -32,8 +32,7 @@ export default function DeliverySettings() {
 
   const loadProfile = async () => {
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
-      const res = await fetch("/api/delivery/profile", { headers: { "x-user-id": userId } });
+      const res = await fetch("/api/delivery/profile");
       if (res.ok) {
         const data = await res.json();
         setProfile(data.profile);
@@ -49,10 +48,9 @@ export default function DeliverySettings() {
     if (!form.fullName.trim() || !form.phone.trim()) return;
     setSaving(true);
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const res = await fetch("/api/delivery/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
       if (!res.ok) throw new Error();
@@ -63,10 +61,9 @@ export default function DeliverySettings() {
   const addVehicle = async (type) => {
     setAdding(true);
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const res = await fetch("/api/delivery/vehicles", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type }),
       });
       if (!res.ok) throw new Error();
@@ -78,10 +75,8 @@ export default function DeliverySettings() {
 
   const removeVehicle = async (vehicleId) => {
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const res = await fetch(`/api/delivery/vehicles/${vehicleId}`, {
         method: "DELETE",
-        headers: { "x-user-id": userId },
       });
       if (!res.ok) throw new Error();
       toast("Véhicule supprimé");
