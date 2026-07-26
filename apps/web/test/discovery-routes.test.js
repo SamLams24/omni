@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/app/api/discovery/discovery-service", () => ({
@@ -138,5 +140,34 @@ describe("discovery route contracts", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "Invalid JSON body" });
     expect(findNearbyFacilities).not.toHaveBeenCalled();
+  });
+
+  it("keeps one canonical discovery API surface", () => {
+    expect(existsSync(resolve(
+      process.cwd(),
+      "src/app/api/vendors/search/route.js",
+    ))).toBe(false);
+    expect(existsSync(resolve(
+      process.cwd(),
+      "src/app/api/image-search/route.js",
+    ))).toBe(false);
+    expect(existsSync(resolve(
+      process.cwd(),
+      "src/components/ImageSearch.jsx",
+    ))).toBe(false);
+  });
+
+  it("passes voice and category terms directly to search", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/app/map/page.jsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("selectSearchQuery(transcript)");
+    expect(source).toContain("selectSearchQuery(cat.label)");
+    expect(source).toContain("selectSearchQuery(cat)");
+    expect(source).not.toContain("setTimeout(() => handleSearch()");
+    expect(source).not.toContain("Lagos");
+    expect(source).toContain("vendor.lon == null || vendor.lat == null");
   });
 });
