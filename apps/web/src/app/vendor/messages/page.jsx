@@ -97,8 +97,12 @@ export default function VendorMessagesPage() {
         <ChatModal
           requestId={selectedConv.request_id}
           vendorId={selectedConv.vendor_id}
-          vendorName="Client"
-          onClose={() => setSelectedConv(null)}
+          peerId={selectedConv.peer_id}
+          vendorName={selectedConv.peer_name || "Client"}
+          onClose={() => {
+            setSelectedConv(null);
+            loadConversations();
+          }}
         />
       )}
     </div>
