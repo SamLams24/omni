@@ -1,50 +1,33 @@
-import sql from "@/app/api/utils/sql";
+import { findNearbyFacilities } from "@/app/api/discovery/discovery-service";
+import {
+  GeoValidationError,
+  parseNearbyParams,
+} from "@/app/api/discovery/geo";
 
 export async function GET(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    const url = new URL(request.url);
-    const lat = parseFloat(url.searchParams.get("lat"));
-    const lon = parseFloat(url.searchParams.get("lon"));
-    const radiusMeters = parseInt(url.searchParams.get("radius")) || 500;
+    const params = parseNearbyParams(new URL(request.url).searchParams, {
+      defaultRadius: 500,
+    });
+    const facilities = await findNearbyFacilities(params);
+    const entities = facilities.map((facility) => ({
+      ...facility,
+      facility_type: facility.type,
+      type: "facility",
+      name: facility.facility_name,
+      distance_meters: facility.distance,
+    }));
 
-    if (!userId || !lat || !lon) {
-      return Response.json({ error: "x-user-id, lat, and lon required" }, { status: 400 });
-    }
-
-    // Mock: return simulated nearby entities
-    // In real mode, this would query facilities and delivery_profiles within radius
-    const mockNearby = [
-      {
-        type: "facility",
-        id: "mock-f1",
-        name: "Marché des Arts",
-        category: "Artisanat",
-        distance_meters: 120,
-        lat: lat + 0.001,
-        lon: lon + 0.002,
-      },
-      {
-        type: "vendor",
-        id: "mock-v1",
-        name: "Restaurant Chez Ama",
-        category: "Alimentation",
-        distance_meters: 300,
-        lat: lat - 0.002,
-        lon: lon + 0.001,
-      },
-      {
-        type: "delivery_person",
-        id: "mock-d1",
-        name: "Kofi",
-        distance_meters: 450,
-        lat: lat + 0.003,
-        lon: lon - 0.001,
-      },
-    ];
-
-    return Response.json({ nearby: mockNearby, radius_meters: radiusMeters });
+    return Response.json({
+      entities,
+      nearby: entities,
+      radius_meters: params.radius,
+      meta: { ...params, count: entities.length },
+    });
   } catch (error) {
+    if (error instanceof GeoValidationError) {
+      return Response.json({ error: error.message }, { status: 400 });
+    }
     console.error("Error fetching nearby entities:", error);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
