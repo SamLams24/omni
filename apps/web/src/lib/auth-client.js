@@ -1,25 +1,43 @@
 import { createAuthClient } from '@neondatabase/neon-js/auth';
 
-const authUrl = 'https://ep-purple-fog-amwsyc3j.neonauth.c-5.us-east-1.aws.neon.tech/neondb/auth';
-console.log('[AuthClient] Using URL:', authUrl);
+let authClient;
 
-export const authClient = createAuthClient(authUrl);
+export function getClientAuthUrl() {
+  return process.env.NEXT_PUBLIC_NEON_AUTH_URL?.replace(/\/+$/, '') || null;
+}
+
+function getAuthClient() {
+  const authUrl = getClientAuthUrl();
+  if (!authUrl) {
+    throw new Error('Authentication is not configured');
+  }
+
+  authClient ||= createAuthClient(authUrl);
+  return authClient;
+}
 
 export async function getSession() {
-  try {
-    const result = await authClient.getSession();
-    if (result.error) {
-      console.log('[AuthClient] getSession error:', result.error);
-      return { user: null, session: null };
-    }
-    return { 
-      user: result.data?.user || null, 
-      session: result.data?.session || null 
-    };
-  } catch (e) {
-    console.log('[AuthClient] getSession exception:', e.message);
+  const result = await getAuthClient().getSession();
+  if (result.error) {
     return { user: null, session: null };
   }
+
+  return {
+    user: result.data?.user || null,
+    session: result.data?.session || null,
+  };
+}
+
+export function signInWithCredentials({ email, password }) {
+  return getAuthClient().signIn.email({ email, password });
+}
+
+export function signUpWithCredentials({ email, password, name }) {
+  return getAuthClient().signUp.email({ email, password, name });
+}
+
+export function signOut() {
+  return getAuthClient().signOut();
 }
 
 export async function checkAuth() {

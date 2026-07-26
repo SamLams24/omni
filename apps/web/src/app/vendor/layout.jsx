@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useIsTablet } from "@/hooks/useIsTablet";
+import { signOut } from "@/lib/auth-client";
 
 export default function VendorLayout({ children }) {
   const location = useLocation();
@@ -35,7 +36,7 @@ export default function VendorLayout({ children }) {
   ];
 
   const handleSignOut = async () => {
-    await fetch("/api/auth/session", { method: "POST" });
+    await signOut();
     localStorage.removeItem("omni_user");
     window.location.href = "/";
   };

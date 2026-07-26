@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Loader2, Store, MapPin, Package, Plus, Trash2, ChevronRight, ArrowLeft } from "lucide-react";
-import { authClient } from "@/lib/auth-client";
+import { getSession } from "@/lib/auth-client";
 
 export default function VendorOnboardingPage() {
   const [user, setUser] = useState(null);
@@ -14,18 +14,12 @@ export default function VendorOnboardingPage() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const storedUser = localStorage.getItem("omni_user");
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-          setUserLoading(false);
-          return;
-        }
-
-        const session = await authClient.getSession();
-        if (session?.data?.user) {
-          localStorage.setItem("omni_user", JSON.stringify(session.data.user));
-          setUser(session.data.user);
+        const session = await getSession();
+        if (session.user) {
+          localStorage.setItem("omni_user", JSON.stringify(session.user));
+          setUser(session.user);
         } else {
+          localStorage.removeItem("omni_user");
           setUser(null);
         }
       } catch {
@@ -54,13 +48,9 @@ export default function VendorOnboardingPage() {
     let mounted = true;
 
     const checkVendor = async () => {
-      const storedUser = localStorage.getItem("omni_user");
-      if (!storedUser) return;
-      const userId = JSON.parse(storedUser).id;
+      if (!user) return;
       try {
-        const response = await fetch("/api/vendors/my-vendor", {
-          headers: { 'x-user-id': userId }
-        });
+        const response = await fetch("/api/vendors/my-vendor");
         const data = await response.json();
         if (mounted && data.vendor) {
           window.location.href = "/vendor/dashboard";
@@ -74,7 +64,7 @@ export default function VendorOnboardingPage() {
       checkVendor();
     }
     return () => { mounted = false; };
-  }, [userLoading]);
+  }, [user, userLoading]);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -123,9 +113,6 @@ export default function VendorOnboardingPage() {
     setError(null);
 
     try {
-      const storedUser = localStorage.getItem("omni_user");
-      const userId = storedUser ? JSON.parse(storedUser).id : null;
-
       const response = await fetch("/api/vendors/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -137,7 +124,6 @@ export default function VendorOnboardingPage() {
           lat: location.lat,
           lon: location.lon,
           products: products.filter((p) => p.name && p.price),
-          userId,
         }),
       });
 

@@ -32,14 +32,47 @@ function useAuth() {
   }, [navigate]);
 
   const signOut = useCallback(async () => {
-    try {
-      const { signOut: apiSignOut } = await import('@/lib/auth-client');
-      await apiSignOut();
-    } catch {
-      // Ignore errors
-    }
+    const { signOut: apiSignOut } = await import('@/lib/auth-client');
+    await apiSignOut();
+    localStorage.removeItem('omni_user');
     setUser(null);
     navigate('/');
+  }, [navigate]);
+
+  const signInWithCredentials = useCallback(async (options) => {
+    const { signInWithCredentials: authenticate } = await import('@/lib/auth-client');
+    const result = await authenticate(options);
+    if (result.error) {
+      throw new Error(result.error.message || 'Authentication failed');
+    }
+
+    const authenticatedUser = result.data?.user || null;
+    if (authenticatedUser) {
+      localStorage.setItem('omni_user', JSON.stringify(authenticatedUser));
+      setUser(authenticatedUser);
+    }
+    if (options.redirect !== false) {
+      navigate(options.callbackUrl || '/map');
+    }
+    return result;
+  }, [navigate]);
+
+  const signUpWithCredentials = useCallback(async (options) => {
+    const { signUpWithCredentials: register } = await import('@/lib/auth-client');
+    const result = await register(options);
+    if (result.error) {
+      throw new Error(result.error.message || 'Registration failed');
+    }
+
+    const authenticatedUser = result.data?.user || null;
+    if (authenticatedUser) {
+      localStorage.setItem('omni_user', JSON.stringify(authenticatedUser));
+      setUser(authenticatedUser);
+    }
+    if (options.redirect !== false) {
+      navigate(options.callbackUrl || '/map');
+    }
+    return result;
   }, [navigate]);
 
   const refreshSession = useCallback(async () => {
@@ -55,7 +88,8 @@ function useAuth() {
     signIn,
     signUp,
     signOut,
-    getSession: null,
+    signInWithCredentials,
+    signUpWithCredentials,
     refreshSession,
   };
 }
