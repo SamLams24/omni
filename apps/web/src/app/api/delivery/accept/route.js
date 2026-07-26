@@ -1,5 +1,13 @@
 import sql from "@/app/api/utils/sql";
 import { getAuthenticatedUser } from "@/lib/auth";
+import {
+  DeliveryInputError,
+  parseDeliveryActionInput,
+} from "@/domains/delivery/input";
+import {
+  hasOppositeDirection,
+  resolveDeliveryPoints,
+} from "@/domains/delivery/geo";
 
 export async function POST(request) {
   try {
@@ -9,12 +17,10 @@ export async function POST(request) {
     }
     const userId = user.id;
 
-    const body = await request.json();
-    const { requestId, tripId } = body;
-
-    if (!requestId || !tripId) {
-      return Response.json({ error: "requestId and tripId required" }, { status: 400 });
-    }
+    const { requestId, tripId } = parseDeliveryActionInput(
+      await request.json(),
+      ["requestId", "tripId"],
+    );
 
     const profile = await sql`
       SELECT id, is_active FROM delivery_profiles WHERE user_id = ${userId}
@@ -78,64 +84,17 @@ export async function POST(request) {
     `;
 
     if (existing.length > 0) {
-      const newPickup = {
-        lat: Number(newReq[0].pickup_lat),
-        lon: Number(newReq[0].pickup_lon),
-      };
-      const newDropoff = {
-        lat: Number(newReq[0].dropoff_lat),
-        lon: Number(newReq[0].dropoff_lon),
-      };
-
-      if (
-        newReq[0].pickup_lat != null
-        && newReq[0].pickup_lon != null
-        && newReq[0].dropoff_lat != null
-        && newReq[0].dropoff_lon != null
-        && Number.isFinite(newPickup.lat)
-        && Number.isFinite(newPickup.lon)
-        && Number.isFinite(newDropoff.lat)
-        && Number.isFinite(newDropoff.lon)
-      ) {
-        for (const ex of existing) {
-          const exPickup = {
-            lat: Number(ex.pickup_lat),
-            lon: Number(ex.pickup_lon),
-          };
-          const exDropoff = {
-            lat: Number(ex.dropoff_lat),
-            lon: Number(ex.dropoff_lon),
-          };
-          if (
-            ex.pickup_lat == null
-            || ex.pickup_lon == null
-            || ex.dropoff_lat == null
-            || ex.dropoff_lon == null
-            || !Number.isFinite(exPickup.lat)
-            || !Number.isFinite(exPickup.lon)
-            || !Number.isFinite(exDropoff.lat)
-            || !Number.isFinite(exDropoff.lon)
-          ) continue;
-
-          // Vector angle check: direction of existing vs new
-          const exDx = exDropoff.lon - exPickup.lon;
-          const exDy = exDropoff.lat - exPickup.lat;
-          const newDx = newDropoff.lon - newPickup.lon;
-          const newDy = newDropoff.lat - newPickup.lat;
-
-          const dot = exDx * newDx + exDy * newDy;
-          const magEx = Math.sqrt(exDx * exDx + exDy * exDy);
-          const magNew = Math.sqrt(newDx * newDx + newDy * newDy);
-
-          if (magEx > 0 && magNew > 0) {
-            const cosAngle = dot / (magEx * magNew);
-            const angle = Math.acos(Math.max(-1, Math.min(1, cosAngle))) * (180 / Math.PI);
-            if (angle > 90) {
-              return Response.json({
-                error: "Conflit directionnel : cette livraison est en sens opposé à une livraison déjà acceptée.",
-              }, { status: 409 });
-            }
-          }
+      const newDelivery = resolveDeliveryPoints(newReq[0]);
+      for (const current of existing) {
+        if (
+          hasOppositeDirection(
+            newDelivery,
+            resolveDeliveryPoints(current),
+          )
+        ) {
+          return Response.json({
+            error: "Conflit directionnel : cette livraison est en sens opposé à une livraison déjà acceptée.",
+          }, { status: 409 });
         }
       }
     }
@@ -153,6 +112,9 @@ export async function POST(request) {
 
     return Response.json({ request: result[0] });
   } catch (error) {
+    if (error instanceof DeliveryInputError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error accepting delivery:", error);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
