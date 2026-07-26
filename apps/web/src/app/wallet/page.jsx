@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
-import { ArrowLeft, Wallet, Plus, ArrowUpRight, ArrowDownRight, Clock, Loader2, Minus } from "lucide-react";
+import { ArrowLeft, Wallet, Plus, ArrowUpRight, ArrowDownRight, Clock, Loader2, Minus, Smartphone, Bitcoin } from "lucide-react";
 import { toast } from "sonner";
 import DepositModal from "@/components/DepositModal";
 
@@ -13,7 +13,6 @@ export default function WalletPage() {
   const [loading, setLoading] = useState(true);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
-  const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -24,9 +23,8 @@ export default function WalletPage() {
   }, []);
 
   const loadWallet = async () => {
-    const userId = JSON.parse(localStorage.getItem("omni_user")).id;
     try {
-      const res = await fetch("/api/wallet/balance", { headers: { "x-user-id": userId } });
+      const res = await fetch("/api/wallet/balance");
       if (res.ok) {
         const data = await res.json();
         setBalance(data.balance);
@@ -35,25 +33,6 @@ export default function WalletPage() {
     } catch {} finally {
       setLoading(false);
     }
-  };
-
-  const deposit = async (method) => {
-    const amount = parseFloat(depositAmount);
-    if (!amount || amount <= 0) { toast("Montant invalide"); return; }
-    setSending(true);
-    try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
-      const res = await fetch("/api/wallet/deposit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
-        body: JSON.stringify({ amount, method }),
-      });
-      if (!res.ok) throw new Error();
-      toast(`${amount.toLocaleString()} FCFA déposés !`);
-      setShowDeposit(false);
-      setDepositAmount("");
-      loadWallet();
-    } catch { toast("Erreur"); } finally { setSending(false); }
   };
 
   const txIcon = (type) => {
@@ -129,10 +108,9 @@ export default function WalletPage() {
                 if (!amount || amount <= 0) { toast("Montant invalide"); return; }
                 setSending(true);
                 try {
-                  const userId = JSON.parse(localStorage.getItem("omni_user")).id;
                   const res = await fetch("/api/wallet/withdraw", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json", "x-user-id": userId },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ amount, method: "mobile_money" }),
                   });
                   if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
@@ -149,10 +127,9 @@ export default function WalletPage() {
                 if (!amount || amount <= 0) { toast("Montant invalide"); return; }
                 setSending(true);
                 try {
-                  const userId = JSON.parse(localStorage.getItem("omni_user")).id;
                   const res = await fetch("/api/wallet/withdraw", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json", "x-user-id": userId },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ amount, method: "crypto" }),
                   });
                   if (!res.ok) { const e = await res.json(); throw new Error(e.error); }

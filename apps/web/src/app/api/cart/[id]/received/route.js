@@ -64,7 +64,9 @@ export async function POST(request, { params }) {
             VALUES (${vendorWallet[0].id}, 'escrow_release', ${netAmount}, ${`Released for cart ${id}`})
           `;
           await sql`
-            UPDATE escrow_holds SET released_at = CURRENT_TIMESTAMP WHERE id = ${escrowHold[0].id}
+            UPDATE escrow_holds
+            SET status = 'released', released_at = CURRENT_TIMESTAMP
+            WHERE id = ${escrowHold[0].id} AND status = 'held'
           `;
         }
       }

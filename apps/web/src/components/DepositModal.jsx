@@ -11,10 +11,9 @@ export default function DepositModal({ isOpen, onClose, onDone }) {
     setMethod(m);
     setLoading(true);
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const res = await fetch("/api/wallet/deposit", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: parseFloat(amount), method: m }),
       });
       if (res.ok) {
