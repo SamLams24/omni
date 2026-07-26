@@ -1,15 +1,14 @@
 import sql from "@/app/api/utils/sql";
 import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
 import { getAuthenticatedUser } from "@/lib/auth";
+import {
+  buildRoutePoints,
+  interpolateRoutePosition,
+  resolveDeliveryPoints,
+} from "@/domains/delivery/geo";
+import { DeliveryInputError } from "@/domains/delivery/input";
 
 const trackingPositions = {};
-
-function interpolate(lat1, lon1, lat2, lon2, t) {
-  return {
-    lat: lat1 + (lat2 - lat1) * t,
-    lon: lon1 + (lon2 - lon1) * t,
-  };
-}
 
 export async function GET(request, { params }) {
   try {
@@ -59,36 +58,23 @@ export async function GET(request, { params }) {
     if (progress >= 1) progress = 1;
     track.progress = progress;
 
-    // Build route points: origin → waypoints → destination
-    const routePoints = [
-      { lat: Number(req.origin_lat), lon: Number(req.origin_lon) },
-      ...(req.waypoints || []).map(w => ({ lat: w.lat, lon: w.lon })),
-      { lat: Number(req.destination_lat), lon: Number(req.destination_lon) },
-    ];
-
-    // Find current segment
-    const segmentCount = routePoints.length - 1;
-    const segProgress = progress * segmentCount;
-    const segIndex = Math.min(Math.floor(segProgress), segmentCount - 1);
-    const segT = segProgress - segIndex;
-
-    const from = routePoints[segIndex];
-    const to = routePoints[segIndex + 1];
-    const pos = from && to ? interpolate(from.lat, from.lon, to.lat, to.lon, segT) : from || to;
-
-    const pickupLat = Number(req.pickup_lat || req.flat);
-    const pickupLon = Number(req.pickup_lon || req.flon);
+    const routePoints = buildRoutePoints(req);
+    const position = interpolateRoutePosition(routePoints, progress);
+    const { pickup, dropoff } = resolveDeliveryPoints(req);
 
     return Response.json({
       deliveryRequestId: id,
-      position: pos,
-      pickup: { lat: pickupLat, lon: pickupLon },
-      dropoff: { lat: Number(req.dropoff_lat), lon: Number(req.dropoff_lon) },
+      position,
+      pickup,
+      dropoff,
       status: progress >= 1 ? 'delivered' : req.status,
       progress: Math.round(progress * 100),
       eta: Math.round((1 - progress) * totalDuration),
     });
   } catch (error) {
+    if (error instanceof DeliveryInputError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error tracking:", error);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
