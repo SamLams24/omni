@@ -1,27 +1,8 @@
 import sql from "@/app/api/utils/sql";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
-import { buildCartResponse } from "@/app/api/cart/cart-state";
-
-async function promoteNextGroup(vendorId) {
-  await sql`
-    WITH next_group AS (
-      SELECT id, cart_id
-      FROM availability_requests
-      WHERE vendor_id = ${vendorId}
-        AND status = 'queued'
-        AND expires_at > CURRENT_TIMESTAMP
-      ORDER BY created_at ASC
-      LIMIT 1
-    )
-    UPDATE availability_requests ar
-    SET status = 'pending'
-    FROM next_group ng
-    WHERE
-      (ng.cart_id IS NOT NULL AND ar.cart_id = ng.cart_id)
-      OR (ng.cart_id IS NULL AND ar.id = ng.id)
-  `;
-}
+import { promoteNextAvailabilityGroup } from "@/domains/cart/queue";
+import { buildCartResponse } from "@/domains/cart/response";
 
 export async function POST(request) {
   try {
@@ -93,7 +74,7 @@ export async function POST(request) {
         WHERE cart_id IN (SELECT id FROM expired_cart)
           AND status IN ('pending', 'queued')
       `;
-      await promoteNextGroup(cart.vendor_id);
+      await promoteNextAvailabilityGroup(cart.vendor_id);
       return Response.json({ error: "Cart has expired" }, { status: 410 });
     }
 
@@ -227,7 +208,7 @@ export async function POST(request) {
       );
     }
 
-    await promoteNextGroup(cart.vendor_id);
+    await promoteNextAvailabilityGroup(cart.vendor_id);
     await sql`
       INSERT INTO notifications (user_id, type, title, message, link)
       VALUES (

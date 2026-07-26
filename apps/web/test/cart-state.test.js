@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCartResponse } from "@/app/api/cart/cart-state";
+import { buildCartResponse } from "@/domains/cart/response";
 
 const requests = [
   {

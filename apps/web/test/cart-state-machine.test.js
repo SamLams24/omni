@@ -49,13 +49,19 @@ describe("cart state machine integration", () => {
   });
 
   it("promotes complete cart groups instead of individual items", () => {
+    const queue = readSource("../src/domains/cart/queue.js");
+    expect(queue).toContain(
+      "ng.cart_id IS NOT NULL AND ar.cart_id = ng.cart_id",
+    );
+
     for (const path of [
       "../src/app/api/cart/respond/route.js",
       "../src/app/api/cart/[id]/cancel/route.js",
       "../src/app/api/availability/respond/route.js",
     ]) {
       const source = readSource(path);
-      expect(source).toContain("ng.cart_id IS NOT NULL AND ar.cart_id = ng.cart_id");
+      expect(source).toContain("promoteNextAvailabilityGroup");
+      expect(source).not.toContain("WITH next_group AS");
     }
   });
 

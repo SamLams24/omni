@@ -1,25 +1,11 @@
 import sql from "@/app/api/utils/sql";
 import { getAuthenticatedUser } from "@/lib/auth";
-
-async function promoteNextGroup(vendorId) {
-  await sql`
-    WITH next_group AS (
-      SELECT id, cart_id
-      FROM availability_requests
-      WHERE vendor_id = ${vendorId}
-        AND status = 'queued'
-        AND expires_at > CURRENT_TIMESTAMP
-      ORDER BY created_at ASC
-      LIMIT 1
-    )
-    UPDATE availability_requests ar
-    SET status = 'pending'
-    FROM next_group ng
-    WHERE
-      (ng.cart_id IS NOT NULL AND ar.cart_id = ng.cart_id)
-      OR (ng.cart_id IS NULL AND ar.id = ng.id)
-  `;
-}
+import {
+  CartInputError,
+  normalizeConfirmedQuantity,
+  parseAvailabilityResponseInput,
+} from "@/domains/cart/input";
+import { promoteNextAvailabilityGroup } from "@/domains/cart/queue";
 
 export async function POST(request) {
   try {
@@ -28,14 +14,8 @@ export async function POST(request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { requestId, status, quantityConfirmed } = body;
-    if (!requestId || !["confirmed", "denied"].includes(status)) {
-      return Response.json(
-        { error: "A valid requestId and status are required" },
-        { status: 400 },
-      );
-    }
+    const { requestId, status, quantityConfirmed } =
+      parseAvailabilityResponseInput(await request.json());
 
     const requests = await sql`
       SELECT
@@ -70,24 +50,15 @@ export async function POST(request) {
             responded_at = CURRENT_TIMESTAMP
         WHERE id = ${requestId} AND status = 'pending'
       `;
-      await promoteNextGroup(availabilityRequest.vendor_id);
+      await promoteNextAvailabilityGroup(availabilityRequest.vendor_id);
       return Response.json({ error: "Cette demande a expiré" }, { status: 410 });
     }
 
-    let confirmedQuantity = null;
-    if (status === "confirmed") {
-      confirmedQuantity = Number(quantityConfirmed);
-      if (
-        !Number.isInteger(confirmedQuantity)
-        || confirmedQuantity < 1
-        || confirmedQuantity > Number(availabilityRequest.quantity_requested)
-      ) {
-        return Response.json(
-          { error: "Confirmed quantity is invalid" },
-          { status: 400 },
-        );
-      }
-    }
+    const confirmedQuantity = normalizeConfirmedQuantity(
+      status,
+      quantityConfirmed,
+      availabilityRequest.quantity_requested,
+    );
 
     const result = await sql`
       UPDATE availability_requests
@@ -106,9 +77,12 @@ export async function POST(request) {
       );
     }
 
-    await promoteNextGroup(availabilityRequest.vendor_id);
+    await promoteNextAvailabilityGroup(availabilityRequest.vendor_id);
     return Response.json({ request: result[0] });
   } catch (error) {
+    if (error instanceof CartInputError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error responding to availability request:", error);
     return Response.json(
       { error: "Failed to respond to request" },

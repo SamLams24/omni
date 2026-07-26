@@ -1,5 +1,9 @@
 import sql from "@/app/api/utils/sql";
 import { getAuthenticatedUser } from "@/lib/auth";
+import {
+  CartInputError,
+  parseAvailabilityRequestInput,
+} from "@/domains/cart/input";
 
 export async function POST(request) {
   try {
@@ -8,21 +12,12 @@ export async function POST(request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { vendorId, facilityId, productId, quantity } = body;
-    const requestedQuantity = Number(quantity);
-    if (
-      !vendorId
-      || !productId
-      || !Number.isInteger(requestedQuantity)
-      || requestedQuantity < 1
-      || requestedQuantity > 999
-    ) {
-      return Response.json(
-        { error: "A vendor, product and valid quantity are required" },
-        { status: 400 },
-      );
-    }
+    const {
+      vendorId,
+      facilityId,
+      productId,
+      quantity: requestedQuantity,
+    } = parseAvailabilityRequestInput(await request.json());
 
     const products = await sql`
       SELECT
@@ -90,6 +85,9 @@ export async function POST(request) {
 
     return Response.json({ request: result[0], success: true });
   } catch (error) {
+    if (error instanceof CartInputError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error creating availability request:", error);
     return Response.json(
       { error: "Internal server error" },

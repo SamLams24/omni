@@ -1,18 +1,11 @@
 import sql from "@/app/api/utils/sql";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
-
-function calculateDistanceKm(lat1, lon1, lat2, lon2) {
-  const radiusKm = 6371;
-  const toRadians = (value) => value * Math.PI / 180;
-  const deltaLat = toRadians(lat2 - lat1);
-  const deltaLon = toRadians(lon2 - lon1);
-  const a = Math.sin(deltaLat / 2) ** 2
-    + Math.cos(toRadians(lat1))
-    * Math.cos(toRadians(lat2))
-    * Math.sin(deltaLon / 2) ** 2;
-  return radiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+import {
+  calculateDeliveryFee,
+  CartInputError,
+  parseCartCreationInput,
+} from "@/domains/cart/input";
 
 export async function POST(request) {
   try {
@@ -22,67 +15,20 @@ export async function POST(request) {
     }
     const userId = user.id;
 
-    const body = await request.json();
-    const { facilityId, items, note, paymentMethod, delivery, dropoffAddress, dropoffLat, dropoffLon } = body;
-    const selectedPaymentMethod = paymentMethod || "cash";
-    const wantsDelivery = delivery === true;
+    const {
+      facilityId,
+      items,
+      note,
+      paymentMethod,
+      wantsDelivery,
+      dropoffAddress,
+      dropoffLat,
+      dropoffLon,
+    } = parseCartCreationInput(await request.json());
 
-    if (!facilityId || !Array.isArray(items) || items.length === 0 || items.length > 50) {
-      return Response.json(
-        { error: "facilityId and items are required" },
-        { status: 400 },
-      );
-    }
-    if (!["cash", "escrow"].includes(selectedPaymentMethod)) {
-      return Response.json({ error: "Invalid payment method" }, { status: 400 });
-    }
-    if (selectedPaymentMethod === "escrow") {
+    if (paymentMethod === "escrow") {
       const disabled = requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS");
       if (disabled) return disabled;
-    }
-
-    const productIds = new Set();
-    const normalizedItems = [];
-    for (const item of items) {
-      const quantity = Number(item.quantity);
-      if (
-        !item.productId
-        || productIds.has(item.productId)
-        || !Number.isInteger(quantity)
-        || quantity < 1
-        || quantity > 999
-      ) {
-        return Response.json(
-          { error: "Cart items must have unique products and valid quantities" },
-          { status: 400 },
-        );
-      }
-      productIds.add(item.productId);
-      normalizedItems.push({
-        product_id: item.productId,
-        quantity_requested: quantity,
-      });
-    }
-
-    if (
-      wantsDelivery
-      && (
-        dropoffLat == null
-        || dropoffLon == null
-        || dropoffLat === ""
-        || dropoffLon === ""
-        || !Number.isFinite(Number(dropoffLat))
-        || !Number.isFinite(Number(dropoffLon))
-        || Number(dropoffLat) < -90
-        || Number(dropoffLat) > 90
-        || Number(dropoffLon) < -180
-        || Number(dropoffLon) > 180
-      )
-    ) {
-      return Response.json(
-        { error: "dropoffLat and dropoffLon are required for delivery" },
-        { status: 400 },
-      );
     }
 
     // Get facility and vendor info
@@ -100,7 +46,7 @@ export async function POST(request) {
     }
 
     const vendorId = facility[0].vendor_id;
-    for (const item of normalizedItems) {
+    for (const item of items) {
       const product = await sql`
         SELECT id, price
         FROM products
@@ -120,28 +66,14 @@ export async function POST(request) {
 
     const pickupLat = wantsDelivery ? Number(facility[0].lat) : 0;
     const pickupLon = wantsDelivery ? Number(facility[0].lon) : 0;
-    const dropLat = wantsDelivery ? Number(dropoffLat) : 0;
-    const dropLon = wantsDelivery ? Number(dropoffLon) : 0;
-    if (
-      wantsDelivery
-      && (!Number.isFinite(pickupLat) || !Number.isFinite(pickupLon))
-    ) {
-      return Response.json(
-        { error: "Facility location is unavailable" },
-        { status: 409 },
-      );
-    }
+    const dropLat = wantsDelivery ? dropoffLat : 0;
+    const dropLon = wantsDelivery ? dropoffLon : 0;
     const deliveryFee = wantsDelivery
-      ? Math.max(
-          500,
-          Math.round(
-            calculateDistanceKm(pickupLat, pickupLon, dropLat, dropLon) * 100,
-          ),
-        )
+      ? calculateDeliveryFee(pickupLat, pickupLon, dropLat, dropLon)
       : 0;
 
     // Check vendor tier: escrow only for premium vendors
-    if (selectedPaymentMethod === "escrow") {
+    if (paymentMethod === "escrow") {
       const vendorUser = await sql`
         SELECT vendor_tier FROM users WHERE id = (
           SELECT user_id FROM vendors WHERE id = ${vendorId}
@@ -155,7 +87,7 @@ export async function POST(request) {
       }
     }
 
-    const itemsJson = JSON.stringify(normalizedItems);
+    const itemsJson = JSON.stringify(items);
     const created = await sql`
       WITH vendor_lock AS (
         SELECT pg_advisory_xact_lock(hashtext(${vendorId}::text))
@@ -181,7 +113,7 @@ export async function POST(request) {
       ),
       created_cart AS (
         INSERT INTO carts (buyer_id, facility_id, note, payment_method)
-        VALUES (${userId}, ${facilityId}, ${note || null}, ${selectedPaymentMethod})
+        VALUES (${userId}, ${facilityId}, ${note}, ${paymentMethod})
         RETURNING id, created_at, expires_at
       ),
       created_requests AS (
@@ -208,7 +140,7 @@ export async function POST(request) {
         SELECT
           created_cart.id, ${userId}, ${facilityId}, 'awaiting_confirmation',
           ${pickupLat}, ${pickupLon}, ${dropLat}, ${dropLon},
-          ${dropoffAddress || null}, ${deliveryFee}
+          ${dropoffAddress}, ${deliveryFee}
         FROM created_cart
         WHERE ${wantsDelivery}
         RETURNING id
@@ -250,6 +182,9 @@ export async function POST(request) {
       success: true,
     });
   } catch (error) {
+    if (error instanceof CartInputError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error sending cart:", error);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }

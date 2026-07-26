@@ -47,7 +47,9 @@ export function buildCartResponse(requests, { confirmAll, items }) {
         || quantity < 1
         || quantity > requested
       ) {
-        throw new Error("Confirmed quantity must be between 1 and the requested quantity");
+        throw new Error(
+          "Confirmed quantity must be between 1 and the requested quantity",
+        );
       }
 
       return {
