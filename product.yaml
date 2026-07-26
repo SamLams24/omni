@@ -1,0 +1,16 @@
+nom: omni
+venture: spark
+archetype: marketplace_indexing
+description: "Moteur de recherche du commerce de quartier en Afrique"
+repo: git@github.com:spark-corp/omni.git
+phase_state:
+  phase_actuelle: 0
+  palier_actuel: "0.1"
+  paliers:
+    "0.1": {nom: "Capture du signal", clos: true}
+    "0.2": {nom: "Première hypothèse", clos: false}
+    "0.3": {nom: "Sacrifice", clos: false}
+  gate_criteres:
+    hypothese_utilisateur_precis: false
+    hypothese_problem_precis: false
+    exemple_concret: false
