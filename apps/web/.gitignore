@@ -5,5 +5,9 @@
 /.react-router/
 /build/
 
+# Browser tests
+/playwright-report/
+/test-results/
+
 # Generated
 /__create/generated-routes.ts
