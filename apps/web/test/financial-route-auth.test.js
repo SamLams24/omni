@@ -83,7 +83,7 @@ describe("financial route authorization", () => {
   });
 
   it("keeps the escrow schema and release transition aligned", () => {
-    const schema = readSource("../scripts/create-tables.sql");
+    const schema = readSource("../db/migrations/0001_baseline.sql");
     const received = readSource("../src/app/api/cart/[id]/received/route.js");
 
     expect(schema).toContain("'held', 'disputed', 'released', 'refunded'");
