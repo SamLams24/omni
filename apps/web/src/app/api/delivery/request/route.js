@@ -45,8 +45,8 @@ export async function POST(request) {
     `;
 
     const req = await sql`
-      INSERT INTO delivery_requests (cart_id, buyer_id, facility_id, pickup_lat, pickup_lon, dropoff_lat, dropoff_lon, dropoff_address)
-      VALUES (${cartId}, ${userId}, ${carts[0].facility_id},
+      INSERT INTO delivery_requests (cart_id, buyer_id, facility_id, status, pickup_lat, pickup_lon, dropoff_lat, dropoff_lon, dropoff_address)
+      VALUES (${cartId}, ${userId}, ${carts[0].facility_id}, 'looking',
               ${facilities[0].lat}, ${facilities[0].lon},
               ${dropoffLat || null}, ${dropoffLon || null}, ${dropoffAddress || null})
       RETURNING *

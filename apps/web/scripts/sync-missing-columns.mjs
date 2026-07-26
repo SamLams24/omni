@@ -1,6 +1,20 @@
 import { neon } from '@neondatabase/serverless';
 const sql = neon(process.env.DATABASE_URL);
 
+// Preserve the price shown when an availability request is created.
+await sql`ALTER TABLE availability_requests ADD COLUMN IF NOT EXISTS unit_price DECIMAL(10,2)`;
+await sql`ALTER TABLE availability_requests ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '5 minutes')`;
+await sql`
+  UPDATE availability_requests ar
+  SET unit_price = p.price
+  FROM products p
+  WHERE ar.product_id = p.id AND ar.unit_price IS NULL
+`;
+await sql`ALTER TABLE availability_requests DROP CONSTRAINT IF EXISTS availability_requests_status_check`;
+await sql`ALTER TABLE availability_requests ADD CONSTRAINT availability_requests_status_check CHECK (status IN ('queued', 'pending', 'confirmed', 'denied'))`;
+await sql`ALTER TABLE availability_requests ALTER COLUMN status SET DEFAULT 'queued'`;
+console.log('✓ unit_price snapshot added to availability_requests');
+
 // Add missing columns to delivery_requests
 await sql`ALTER TABLE delivery_requests ADD COLUMN IF NOT EXISTS delivery_fee DECIMAL(10,2) DEFAULT 500`;
 console.log('✓ delivery_fee added to delivery_requests');
@@ -56,5 +70,11 @@ console.log('✓ delivery_confirmed_at added to escrow_holds');
 await sql`ALTER TABLE escrow_holds DROP CONSTRAINT IF EXISTS escrow_holds_status_check`;
 await sql`ALTER TABLE escrow_holds ADD CONSTRAINT escrow_holds_status_check CHECK (status IN ('held', 'disputed', 'released', 'refunded'))`;
 console.log('✓ disputed status added to escrow_holds');
+
+// Delivery requests wait for the vendor's cart response before matching.
+await sql`ALTER TABLE delivery_requests DROP CONSTRAINT IF EXISTS delivery_requests_status_check`;
+await sql`ALTER TABLE delivery_requests ADD CONSTRAINT delivery_requests_status_check CHECK (status IN ('awaiting_confirmation', 'looking', 'matched', 'picked_up', 'in_transit', 'delivered', 'cancelled'))`;
+await sql`ALTER TABLE delivery_requests ALTER COLUMN status SET DEFAULT 'awaiting_confirmation'`;
+console.log('✓ awaiting_confirmation status added to delivery_requests');
 
 process.exit(0);

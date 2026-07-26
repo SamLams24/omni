@@ -9,6 +9,52 @@ export async function GET(request) {
     }
     const userId = user.id;
 
+    await sql`
+      WITH expired_carts AS (
+        UPDATE carts
+        SET status = 'denied', responded_at = CURRENT_TIMESTAMP
+        WHERE buyer_id = ${userId}
+          AND status = 'pending'
+          AND expires_at <= CURRENT_TIMESTAMP
+        RETURNING id, facility_id
+      ),
+      expired_requests AS (
+        UPDATE availability_requests
+        SET status = 'denied', quantity_confirmed = NULL,
+            responded_at = CURRENT_TIMESTAMP
+        WHERE cart_id IN (SELECT id FROM expired_carts)
+          AND status IN ('pending', 'queued')
+        RETURNING id
+      ),
+      cancelled_deliveries AS (
+        UPDATE delivery_requests
+        SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+        WHERE cart_id IN (SELECT id FROM expired_carts)
+          AND status = 'awaiting_confirmation'
+        RETURNING id
+      ),
+      affected_vendors AS (
+        SELECT DISTINCT f.vendor_id
+        FROM expired_carts ec
+        JOIN facilities f ON f.id = ec.facility_id
+      ),
+      next_groups AS (
+        SELECT DISTINCT ON (ar.vendor_id)
+          ar.vendor_id, ar.id, ar.cart_id
+        FROM availability_requests ar
+        JOIN affected_vendors av ON av.vendor_id = ar.vendor_id
+        WHERE ar.status = 'queued'
+          AND ar.expires_at > CURRENT_TIMESTAMP
+        ORDER BY ar.vendor_id, ar.created_at ASC
+      )
+      UPDATE availability_requests ar
+      SET status = 'pending'
+      FROM next_groups ng
+      WHERE
+        (ng.cart_id IS NOT NULL AND ar.cart_id = ng.cart_id)
+        OR (ng.cart_id IS NULL AND ar.id = ng.id)
+    `;
+
     const carts = await sql`
       SELECT 
         c.id,
@@ -46,7 +92,7 @@ export async function GET(request) {
           ar.created_at,
           ar.responded_at,
           p.name as product_name,
-          p.price as product_price,
+          COALESCE(ar.unit_price, p.price) as product_price,
           p.unit as product_unit
         FROM availability_requests ar
         JOIN products p ON p.id = ar.product_id

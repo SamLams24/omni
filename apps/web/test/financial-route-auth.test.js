@@ -76,10 +76,10 @@ describe("financial route authorization", () => {
   it("stores the vendor id, not the facility id, in escrow", () => {
     const source = readSource("../src/app/api/cart/respond/route.js");
 
-    expect(source).toContain("SELECT c.id, c.buyer_id, f.vendor_id");
-    expect(source).toContain("${cartDetail[0].vendor_id}");
+    expect(source).toContain("INSERT INTO escrow_holds");
+    expect(source).toContain("${cart.vendor_id}");
     expect(source).toContain("'escrow_hold', ${total}");
-    expect(source).not.toContain("${cartDetail[0].facility_id}, ${total}");
+    expect(source).not.toContain("${cart.facility_id}, ${total}");
   });
 
   it("keeps the escrow schema and release transition aligned", () => {

@@ -126,6 +126,7 @@ CREATE TABLE IF NOT EXISTS availability_requests (
     product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     quantity_requested DECIMAL(10, 2) NOT NULL,
     quantity_confirmed DECIMAL(10, 2),
+    unit_price DECIMAL(10,2),
     status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'pending', 'confirmed', 'denied')),
     expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '5 minutes'),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
