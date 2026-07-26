@@ -49,6 +49,23 @@ describe("delivery route authorization", () => {
     expect(acceptance).toContain("Activate your delivery profile first");
   });
 
+  it("uses shared delivery rules in route handlers", () => {
+    const matching = readSource("../src/app/api/delivery/match/route.js");
+    const acceptance = readSource("../src/app/api/delivery/accept/route.js");
+    const createTrip = readSource(
+      "../src/app/api/delivery/trips/create/route.js",
+    );
+    const updateTrip = readSource(
+      "../src/app/api/delivery/trips/[id]/route.js",
+    );
+
+    expect(matching).toContain("distanceToRouteMeters");
+    expect(acceptance).toContain("hasOppositeDirection");
+    expect(createTrip).toContain("parseTripInput");
+    expect(updateTrip).toContain("parseTripInput");
+    expect(updateTrip).toContain("delivery_tier");
+  });
+
   it("keeps simulated tracking disabled in production", () => {
     const tracking = readSource("../src/app/api/delivery/tracking/[id]/route.js");
 

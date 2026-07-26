@@ -1,5 +1,9 @@
 import sql from "@/app/api/utils/sql";
 import { getAuthenticatedUser } from "@/lib/auth";
+import {
+  DeliveryInputError,
+  parseTripInput,
+} from "@/domains/delivery/input";
 
 export async function GET(request, { params }) {
   try {
@@ -39,19 +43,25 @@ export async function PUT(request, { params }) {
     const userId = user.id;
 
     const { id } = await params;
-    const body = await request.json();
-    const { originLat, originLon, destinationLat, destinationLon, waypoints, deviationKm } = body;
-
-    if (!originLat || !originLon || !destinationLat || !destinationLon) {
-      return Response.json({ error: "origin and destination required" }, { status: 400 });
-    }
+    const userTier = await sql`
+      SELECT delivery_tier FROM users WHERE id = ${userId}
+    `;
+    const freeTier = (
+      userTier.length === 0 || userTier[0].delivery_tier === "free"
+    );
+    const {
+      origin,
+      destination,
+      waypoints,
+      deviationKm,
+    } = parseTripInput(await request.json(), { freeTier });
 
     const result = await sql`
       UPDATE delivery_planned_trips SET
-        origin_lat = ${originLat}, origin_lon = ${originLon},
-        destination_lat = ${destinationLat}, destination_lon = ${destinationLon},
-        waypoints = ${JSON.stringify(waypoints || [])}::jsonb,
-        deviation_km = ${deviationKm || 2}
+        origin_lat = ${origin.lat}, origin_lon = ${origin.lon},
+        destination_lat = ${destination.lat}, destination_lon = ${destination.lon},
+        waypoints = ${JSON.stringify(waypoints)}::jsonb,
+        deviation_km = ${deviationKm}
       WHERE id = ${id} AND delivery_profile_id = (
         SELECT id FROM delivery_profiles WHERE user_id = ${userId}
       )
@@ -64,6 +74,9 @@ export async function PUT(request, { params }) {
 
     return Response.json({ trip: result[0] });
   } catch (error) {
+    if (error instanceof DeliveryInputError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error updating trip:", error);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }

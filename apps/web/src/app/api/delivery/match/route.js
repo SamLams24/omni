@@ -1,23 +1,14 @@
 import sql from "@/app/api/utils/sql";
 import { getAuthenticatedUser } from "@/lib/auth";
-
-function haversineDist(lat1, lon1, lat2, lon2) {
-  const R = 6371000;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-function pointToSegmentDist(px, py, ax, ay, bx, by) {
-  const dx = bx - ax, dy = by - ay;
-  const lenSq = dx*dx + dy*dy;
-  if (lenSq === 0) return haversineDist(px, py, ax, ay);
-  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
-  t = Math.max(0, Math.min(1, t));
-  const nearX = ax + t * dx, nearY = ay + t * dy;
-  return haversineDist(px, py, nearX, nearY);
-}
+import {
+  buildRoutePoints,
+  distanceToRouteMeters,
+  resolveDeliveryPoints,
+} from "@/domains/delivery/geo";
+import {
+  DeliveryInputError,
+  parseDeliveryActionInput,
+} from "@/domains/delivery/input";
 
 export async function POST(request) {
   try {
@@ -27,10 +18,10 @@ export async function POST(request) {
     }
     const userId = user.id;
 
-    const { tripId } = await request.json();
-    if (!tripId) {
-      return Response.json({ error: "tripId required" }, { status: 400 });
-    }
+    const { tripId } = parseDeliveryActionInput(
+      await request.json(),
+      ["tripId"],
+    );
 
     const trips = await sql`
       SELECT dpt.*
@@ -45,11 +36,7 @@ export async function POST(request) {
     }
 
     const trip = trips[0];
-    const points = [
-      { lat: Number(trip.origin_lat), lon: Number(trip.origin_lon) },
-      ...(trip.waypoints || []).map(w => ({ lat: w.lat, lon: w.lon })),
-      { lat: Number(trip.destination_lat), lon: Number(trip.destination_lon) },
-    ];
+    const points = buildRoutePoints(trip);
 
     const requests = await sql`
       SELECT
@@ -73,28 +60,18 @@ export async function POST(request) {
 
     const matches = [];
     for (const req of requests) {
-      let minDist = Infinity;
-      const pickupLat = Number(req.pickup_lat || req.facility_lat);
-      const pickupLon = Number(req.pickup_lon || req.facility_lon);
-      const dropoffLat = Number(req.dropoff_lat);
-      const dropoffLon = Number(req.dropoff_lon);
+      const { pickup, dropoff } = resolveDeliveryPoints(req);
+      if (!pickup) continue;
 
-      if (!pickupLat || !pickupLon) continue;
-
-      // Check pickup distance to route
-      for (let i = 0; i < points.length - 1; i++) {
-        const d = pointToSegmentDist(pickupLat, pickupLon, points[i].lat, points[i].lon, points[i+1].lat, points[i+1].lon);
-        if (d < minDist) minDist = d;
-      }
-      // Also check dropoff
-      if (dropoffLat && dropoffLon) {
-        for (let i = 0; i < points.length - 1; i++) {
-          const d = pointToSegmentDist(dropoffLat, dropoffLon, points[i].lat, points[i].lon, points[i+1].lat, points[i+1].lon);
-          if (d < minDist) minDist = d;
-        }
+      let minDist = distanceToRouteMeters(pickup, points);
+      if (dropoff) {
+        minDist = Math.min(
+          minDist,
+          distanceToRouteMeters(dropoff, points),
+        );
       }
 
-      const deviationM = trip.deviation_km * 1000;
+      const deviationM = Number(trip.deviation_km) * 1000;
       if (minDist <= deviationM) {
         matches.push({ request: req, distanceToRoute: Math.round(minDist) });
       }
@@ -104,6 +81,9 @@ export async function POST(request) {
 
     return Response.json({ matches, count: matches.length });
   } catch (error) {
+    if (error instanceof DeliveryInputError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error matching:", error);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
