@@ -12,7 +12,7 @@ await sql`
     dropoff_lat DECIMAL(10,8),
     dropoff_lon DECIMAL(11,8),
     dropoff_address TEXT,
-    status TEXT DEFAULT 'looking' CHECK (status IN ('looking', 'matched', 'picked_up', 'in_transit', 'delivered', 'cancelled')),
+    status TEXT DEFAULT 'awaiting_confirmation' CHECK (status IN ('awaiting_confirmation', 'looking', 'matched', 'picked_up', 'in_transit', 'delivered', 'cancelled')),
     matched_trip_id UUID REFERENCES delivery_planned_trips(id) ON DELETE SET NULL,
     delivery_profile_id UUID REFERENCES delivery_profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
