@@ -1,4 +1,9 @@
 import sql from "@/app/api/utils/sql";
+import {
+  CatalogInputError,
+  parseFacilityCreationInput,
+  readCatalogRequest,
+} from "@/domains/catalog/input";
 import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request) {
@@ -9,15 +14,17 @@ export async function POST(request) {
     }
     const userId = user.id;
 
-    const body = await request.json();
-    const { vendorId, name, category, type, description, lat, lon, address, neighborhood } = body;
-
-    if (!vendorId || !name || !category || !lat || !lon) {
-      return Response.json(
-        { error: "Missing required fields: vendorId, name, category, lat, lon" },
-        { status: 400 },
-      );
-    }
+    const {
+      vendorId,
+      name,
+      category,
+      type,
+      description,
+      lat,
+      lon,
+      address,
+      neighborhood,
+    } = await readCatalogRequest(request, parseFacilityCreationInput);
 
     // Verify vendor ownership
     const vendor = await sql`
@@ -48,15 +55,18 @@ export async function POST(request) {
     const result = await sql`
       INSERT INTO facilities (vendor_id, name, category, type, description, location, address, neighborhood)
       VALUES (
-        ${vendorId}, ${name}, ${category}, ${type || 'fixed'}, ${description || null},
+        ${vendorId}, ${name}, ${category}, ${type}, ${description},
         ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326),
-        ${address || null}, ${neighborhood || null}
+        ${address}, ${neighborhood}
       )
       RETURNING id
     `;
 
     return Response.json({ facilityId: result[0].id, success: true });
   } catch (error) {
+    if (error instanceof CatalogInputError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error creating facility:", error);
     return Response.json(
       { error: "Failed to create facility" },
