@@ -31,6 +31,17 @@ Direct commits to `main` should be disabled with branch protection.
   domain services, hooks, and focused components.
 - Prefer TypeScript for new production code.
 
+## Database changes
+
+- `apps/web/db/migrations` is the only authoritative schema history.
+- Never edit a migration after it has been applied; checksums intentionally
+  make that fail.
+- Add schema changes as the next zero-padded SQL migration and keep seed data
+  out of migrations.
+- Run `pnpm db:migrate:status` before `pnpm db:migrate`.
+- Production migrations require a backup and an explicit deployment step; the
+  web process never mutates the schema on startup.
+
 ## Definition of done
 
 A change is complete when:
