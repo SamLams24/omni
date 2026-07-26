@@ -39,7 +39,7 @@ describe("cart state machine integration", () => {
 
   it("only exposes delivery requests after a positive vendor response", () => {
     const response = readSource("../src/app/api/cart/respond/route.js");
-    const schema = readSource("../scripts/create-tables.sql");
+    const schema = readSource("../db/migrations/0001_baseline.sql");
 
     expect(response).toContain("status = 'awaiting_confirmation'");
     expect(response).toContain("ELSE 'looking'");
