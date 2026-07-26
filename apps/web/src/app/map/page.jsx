@@ -552,7 +552,6 @@ export default function MapPage() {
     setError(null);
 
     try {
-      console.log('[Map] Loading nearby facilities for location:', userLocation);
       const response = await fetch("/api/facilities/nearby", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -563,8 +562,6 @@ export default function MapPage() {
         }),
       });
 
-      console.log('[Map] API response status:', response.status);
-      
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[Map] API error response:', errorText);
@@ -572,7 +569,6 @@ export default function MapPage() {
       }
 
       const data = await response.json();
-      console.log('[Map] Received facilities:', data.facilities?.length || 0, data);
       setVendors(data.facilities || []);
     } catch (err) {
       console.error('[Map] Error loading facilities:', err);
