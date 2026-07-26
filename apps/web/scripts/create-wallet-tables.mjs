@@ -17,7 +17,7 @@ await sql`
   CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     wallet_id UUID NOT NULL REFERENCES wallets(id) ON DELETE CASCADE,
-    type TEXT NOT NULL CHECK (type IN ('deposit', 'withdrawal', 'escrow_hold', 'escrow_release', 'escrow_refund', 'fee')),
+    type TEXT NOT NULL CHECK (type IN ('deposit', 'withdrawal', 'escrow_hold', 'escrow_release', 'escrow_refund', 'fee', 'delivery_payment')),
     amount DECIMAL(12,2) NOT NULL,
     reference TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -38,7 +38,7 @@ await sql`
     vendor_id UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
     amount DECIMAL(12,2) NOT NULL,
     fee DECIMAL(12,2) NOT NULL DEFAULT 0,
-    status TEXT DEFAULT 'held' CHECK (status IN ('held', 'released', 'refunded')),
+    status TEXT DEFAULT 'held' CHECK (status IN ('held', 'disputed', 'released', 'refunded')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     released_at TIMESTAMP
   )
@@ -59,7 +59,7 @@ console.log('✓ vendor_tier column added');
 // Create wallets for existing users
 await sql`
   INSERT INTO wallets (user_id, balance)
-  SELECT id, 5000 FROM users
+  SELECT id, 0 FROM users
   WHERE id NOT IN (SELECT user_id FROM wallets)
 `;
 console.log('✓ default wallets created');

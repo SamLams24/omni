@@ -1,13 +1,15 @@
 import sql from "@/app/api/utils/sql";
 import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request) {
   try {
     const disabled = requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS");
     if (disabled) return disabled;
 
-    const userId = request.headers.get("x-user-id");
-    if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await getAuthenticatedUser(request);
+    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    const userId = user.id;
 
     const body = await request.json();
     const { cartId } = body;
@@ -16,9 +18,16 @@ export async function POST(request) {
     }
 
     const escrow = await sql`
-      UPDATE escrow_holds SET status = 'disputed', updated_at = CURRENT_TIMESTAMP
-      WHERE cart_id = ${cartId} AND status IN ('held', 'delivery_confirmed', 'buyer_confirmed')
-      RETURNING *
+      UPDATE escrow_holds eh
+      SET status = 'disputed'
+      FROM carts c
+      JOIN facilities f ON f.id = c.facility_id
+      JOIN vendors v ON v.id = f.vendor_id
+      WHERE eh.cart_id = c.id
+        AND eh.cart_id = ${cartId}
+        AND eh.status = 'held'
+        AND (c.buyer_id = ${userId} OR v.user_id = ${userId})
+      RETURNING eh.*
     `;
 
     if (escrow.length === 0) {

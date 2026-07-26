@@ -179,8 +179,7 @@ export default function MapPage() {
     if (!isAuthenticated) return;
     const fetchBalance = async () => {
       try {
-        const userId = JSON.parse(localStorage.getItem("omni_user")).id;
-        const res = await fetch("/api/wallet/balance", { headers: { "x-user-id": userId } });
+        const res = await fetch("/api/wallet/balance");
         if (res.ok) { const d = await res.json(); setWalletBalance(d.balance); }
       } catch {}
     };

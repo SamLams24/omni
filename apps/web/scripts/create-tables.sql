@@ -296,7 +296,7 @@ CREATE TABLE IF NOT EXISTS escrow_holds (
     vendor_id UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
     amount DECIMAL(12,2) NOT NULL,
     fee DECIMAL(12,2) NOT NULL DEFAULT 0,
-    status TEXT DEFAULT 'held' CHECK (status IN ('held', 'released', 'refunded')),
+    status TEXT DEFAULT 'held' CHECK (status IN ('held', 'disputed', 'released', 'refunded')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     released_at TIMESTAMP,
     delivery_confirmed_at TIMESTAMP
@@ -349,7 +349,7 @@ ALTER TABLE transactions ADD CONSTRAINT transactions_type_check
 
 -- Créer wallets pour utilisateurs existants
 INSERT INTO wallets (user_id, balance)
-SELECT id, 5000 FROM users
+SELECT id, 0 FROM users
 WHERE id NOT IN (SELECT user_id FROM wallets)
 ON CONFLICT DO NOTHING;
 

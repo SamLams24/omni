@@ -1,9 +1,11 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await getAuthenticatedUser(request);
+    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    const userId = user.id;
 
     const users = await sql`
       SELECT vendor_tier, delivery_tier FROM users WHERE id = ${userId}

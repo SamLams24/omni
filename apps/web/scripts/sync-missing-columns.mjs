@@ -52,4 +52,9 @@ console.log('✓ delivery_payment type added to transactions');
 await sql`ALTER TABLE escrow_holds ADD COLUMN IF NOT EXISTS delivery_confirmed_at TIMESTAMP`;
 console.log('✓ delivery_confirmed_at added to escrow_holds');
 
+// Keep the escrow state machine aligned with the dispute endpoint.
+await sql`ALTER TABLE escrow_holds DROP CONSTRAINT IF EXISTS escrow_holds_status_check`;
+await sql`ALTER TABLE escrow_holds ADD CONSTRAINT escrow_holds_status_check CHECK (status IN ('held', 'disputed', 'released', 'refunded'))`;
+console.log('✓ disputed status added to escrow_holds');
+
 process.exit(0);

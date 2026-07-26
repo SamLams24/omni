@@ -93,13 +93,14 @@ export async function POST(request) {
 
     if (cart[0].payment_method === 'escrow' && isConfirmed) {
       const cartDetail = await sql`
-        SELECT c.id, c.buyer_id, c.facility_id,
+        SELECT c.id, c.buyer_id, f.vendor_id,
           SUM(p.price * ar.quantity_confirmed) as total
         FROM carts c
+        JOIN facilities f ON f.id = c.facility_id
         JOIN availability_requests ar ON ar.cart_id = c.id
         JOIN products p ON p.id = ar.product_id
         WHERE c.id = ${cartId} AND ar.status = 'confirmed'
-        GROUP BY c.id
+        GROUP BY c.id, f.vendor_id
       `;
       if (cartDetail.length > 0) {
         const total = parseFloat(cartDetail[0].total);
@@ -111,7 +112,7 @@ export async function POST(request) {
           await sql`UPDATE wallets SET balance = balance - ${toHold}, updated_at = CURRENT_TIMESTAMP WHERE id = ${buyerWallet[0].id}`;
           await sql`
             INSERT INTO transactions (wallet_id, type, amount, reference)
-            VALUES (${buyerWallet[0].id}, 'escrow_hold', ${toHold}, ${`Hold for cart ${cartId}`})
+            VALUES (${buyerWallet[0].id}, 'escrow_hold', ${total}, ${`Hold for cart ${cartId}`})
           `;
           await sql`
             INSERT INTO transactions (wallet_id, type, amount, reference)
@@ -119,7 +120,7 @@ export async function POST(request) {
           `;
           await sql`
             INSERT INTO escrow_holds (cart_id, buyer_id, vendor_id, amount, fee)
-            VALUES (${cartId}, ${cartDetail[0].buyer_id}, ${cartDetail[0].facility_id}, ${total}, ${fee})
+            VALUES (${cartId}, ${cartDetail[0].buyer_id}, ${cartDetail[0].vendor_id}, ${total}, ${fee})
           `;
         }
       }
