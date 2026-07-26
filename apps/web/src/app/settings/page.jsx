@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Loader2, User, MapPin, Trash2, ChevronRight } from "lucide-react";
-import { authClient } from "@/lib/auth-client";
+import { getSession, signOut } from "@/lib/auth-client";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -20,14 +20,15 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const loadProfile = async () => {
-      const storedUser = localStorage.getItem("omni_user");
-      if (!storedUser) { navigate("/auth"); return; }
-      const parsed = JSON.parse(storedUser);
-      setUser(parsed);
+      const session = await getSession().catch(() => ({ user: null }));
+      if (!session.user) {
+        localStorage.removeItem("omni_user");
+        navigate("/auth");
+        return;
+      }
+      setUser(session.user);
 
-      const res = await fetch("/api/user/profile", {
-        headers: { "x-user-id": parsed.id },
-      });
+      const res = await fetch("/api/user/profile");
       const data = await res.json();
       if (data.user) {
         setForm({ name: data.user.name || "", phone: data.user.phone || "" });
@@ -60,7 +61,7 @@ export default function SettingsPage() {
     try {
       const res = await fetch("/api/user/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "x-user-id": user.id },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
           ...(location ? { lat: location.lat, lon: location.lon } : {}),
@@ -81,9 +82,9 @@ export default function SettingsPage() {
     try {
       const res = await fetch("/api/user/account", {
         method: "DELETE",
-        headers: { "x-user-id": user.id },
       });
       if (!res.ok) throw new Error("Erreur lors de la suppression");
+      await signOut();
       localStorage.removeItem("omni_user");
       navigate("/");
     } catch (err) {
