@@ -35,8 +35,8 @@ Do not add features to a legacy or experimental directory. See
 - early implementations of favorites, reviews, delivery, subscriptions, and
   wallet flows.
 
-Some flows are incomplete or simulated. In particular, OTP authentication and
-financial operations must not be considered production-ready.
+Some flows are incomplete or simulated. In particular, financial operations
+must not be considered production-ready.
 
 ## Local development
 
@@ -46,11 +46,21 @@ Omni web uses Node.js 22 and pnpm 11.7.0. From the repository root:
 corepack enable
 cd apps/web
 pnpm install --frozen-lockfile
+pnpm db:migrate
 pnpm dev
 ```
 
 Never commit local `.env` files. Start from `apps/web/.env.example` and keep
 real values in the deployment platform or your local secret store.
+
+`apps/web/db/migrations` is the only authoritative database schema history.
+Never run an old setup script or edit an applied migration. Create the next
+numbered migration and run `pnpm db:migrate:status` before applying it. Demo
+data is separate and requires an explicit development-only opt-in:
+
+```bash
+ALLOW_DEVELOPMENT_SEED=true pnpm db:seed:development
+```
 
 Before opening a pull request, run:
 
@@ -63,6 +73,7 @@ pnpm validate
 
 - [Repository audit](docs/REPOSITORY_AUDIT.md)
 - [Architecture decision: source of truth](docs/architecture/ADR-001-source-of-truth.md)
+- [Architecture decision: database migrations](docs/architecture/ADR-002-database-migrations.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Product requirements](OMNI_PRD_v1.0.md)
