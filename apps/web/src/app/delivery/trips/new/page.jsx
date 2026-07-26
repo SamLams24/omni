@@ -57,10 +57,7 @@ export default function NewTrip() {
     if (!editTripId) return;
     (async () => {
       try {
-        const userId = JSON.parse(localStorage.getItem("omni_user")).id;
-        const res = await fetch(`/api/delivery/trips/${editTripId}`, {
-          headers: { "x-user-id": userId },
-        });
+        const res = await fetch(`/api/delivery/trips/${editTripId}`);
         if (res.ok) {
           const data = await res.json();
           const t = data.trip;
@@ -306,8 +303,13 @@ export default function NewTrip() {
     if (!origin?.lat || !destination?.lat) { toast("Départ et arrivée requis"); return; }
     setSending(true);
     try {
-      let userId;
-      try { userId = JSON.parse(localStorage.getItem("omni_user")).id; } catch { toast("Session expirée"); navigate("/auth"); return; }
+      try {
+        if (!JSON.parse(localStorage.getItem("omni_user")).id) throw new Error();
+      } catch {
+        toast("Session expirée");
+        navigate("/auth");
+        return;
+      }
       const wps = waypoints.filter((w) => w.lat != null && w.lon != null).map((w) => ({
         lat: w.lat, lon: w.lon, address: w.name || "",
       }));
@@ -315,7 +317,7 @@ export default function NewTrip() {
       const method = isEditing ? "PUT" : "POST";
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           originLat: origin.lat,
           originLon: origin.lon,

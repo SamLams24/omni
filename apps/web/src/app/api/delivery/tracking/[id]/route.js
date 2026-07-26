@@ -1,4 +1,6 @@
 import sql from "@/app/api/utils/sql";
+import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 const trackingPositions = {};
 
@@ -11,6 +13,15 @@ function interpolate(lat1, lon1, lat2, lon2, t) {
 
 export async function GET(request, { params }) {
   try {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = user.id;
+
+    const disabled = requireNonProductionFeature("ENABLE_MOCK_DELIVERY_TRACKING");
+    if (disabled) return disabled;
+
     const { id } = await params;
 
     const requests = await sql`
@@ -22,6 +33,12 @@ export async function GET(request, { params }) {
       JOIN facilities f ON f.id = dr.facility_id
       JOIN delivery_planned_trips dpt ON dpt.id = dr.matched_trip_id
       WHERE dr.id = ${id} AND dr.status IN ('matched', 'picked_up', 'in_transit')
+        AND (
+          dr.buyer_id = ${userId}
+          OR dr.delivery_profile_id = (
+            SELECT id FROM delivery_profiles WHERE user_id = ${userId}
+          )
+        )
     `;
 
     if (requests.length === 0) {

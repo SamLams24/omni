@@ -1,31 +1,34 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request, { params }) {
   try {
-    const { userId } = await params;
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // Mock: return simulated live location
-    // In real mode, this would return the delivery person's current_location from delivery_profiles
+    const { userId } = await params;
+    if (userId !== user.id) {
+      return Response.json({ error: "Location not found" }, { status: 404 });
+    }
+
     const profile = await sql`
-      SELECT current_location, location_updated_at
+      SELECT
+        ST_Y(current_location::geometry) as lat,
+        ST_X(current_location::geometry) as lon,
+        location_updated_at
       FROM delivery_profiles WHERE user_id = ${userId}
     `;
 
-    if (profile.length === 0 || !profile[0].current_location) {
-      // Return mock location near user
-      return Response.json({
-        lat: 6.1319 + (Math.random() - 0.5) * 0.01,
-        lon: 1.2228 + (Math.random() - 0.5) * 0.01,
-        updated_at: new Date().toISOString(),
-        mock: true,
-      });
+    if (profile.length === 0 || profile[0].lat == null || profile[0].lon == null) {
+      return Response.json({ error: "Location not found" }, { status: 404 });
     }
 
     return Response.json({
-      lat: 6.1319,
-      lon: 1.2228,
+      lat: Number(profile[0].lat),
+      lon: Number(profile[0].lon),
       updated_at: profile[0].location_updated_at,
-      mock: true,
     });
   } catch (error) {
     console.error("Error fetching delivery location:", error);
