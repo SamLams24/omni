@@ -9,7 +9,7 @@
 | # | Tâche | Type | Status |
 |---|-------|------|--------|
 | 0.1 | Vérifier `npm run dev` | 🔵 Réel | ✅ |
-| 0.2 | Exécuter `create-tables.sql` | 🔵 Réel | ✅ |
+| 0.2 | Exécuter `pnpm db:migrate` | 🔵 Réel | ✅ |
 | 0.3 | Vérifier `npm run typecheck` | 🔵 Réel | ✅ |
 
 ---

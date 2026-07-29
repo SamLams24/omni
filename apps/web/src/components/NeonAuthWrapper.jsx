@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { authClient } from "@/lib/auth-client";
+import {
+  signInWithCredentials,
+  signUpWithCredentials,
+} from "@/lib/auth-client";
 
 export function NeonAuthWrapper({ redirectUrl = "/map" }) {
   const navigate = useNavigate();
@@ -44,12 +47,12 @@ export function NeonAuthWrapper({ redirectUrl = "/map" }) {
 
     try {
       const result = isSignUp
-        ? await authClient.signUp.email({ 
+        ? await signUpWithCredentials({
             email, 
             password, 
             name: name || email.split('@')[0] 
           })
-        : await authClient.signIn.email({ email, password });
+        : await signInWithCredentials({ email, password });
 
       if (result.error) {
         setError(result.error.message || "Authentication failed");
@@ -62,9 +65,8 @@ export function NeonAuthWrapper({ redirectUrl = "/map" }) {
       } else {
         navigate(redirectUrl);
       }
-    } catch (err) {
+    } catch {
       setError("Network error. Please try again.");
-      console.error("Auth error:", err);
       setIsLoading(false);
     }
   };

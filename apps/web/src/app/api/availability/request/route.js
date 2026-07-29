@@ -1,85 +1,93 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
+import {
+  CartInputError,
+  parseAvailabilityRequestInput,
+} from "@/domains/cart/input";
 
 export async function POST(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { vendorId, facilityId, productId, quantity } = body;
+    const {
+      vendorId,
+      facilityId,
+      productId,
+      quantity: requestedQuantity,
+    } = parseAvailabilityRequestInput(await request.json());
 
-    if (!vendorId || !productId || !quantity) {
+    const products = await sql`
+      SELECT
+        p.id, p.vendor_id, p.facility_id, p.price,
+        v.user_id AS vendor_user_id
+      FROM products p
+      JOIN vendors v ON v.id = p.vendor_id
+      WHERE p.id = ${productId}
+        AND p.vendor_id = ${vendorId}
+        AND p.is_available = true
+    `;
+    if (
+      products.length === 0
+      || (facilityId && products[0].facility_id !== facilityId)
+    ) {
       return Response.json(
-        { error: "Missing required fields: vendorId, productId, quantity" },
-        { status: 400 },
+        { error: "Product is unavailable for this vendor and facility" },
+        { status: 404 },
       );
     }
 
-    const buyerId = userId;
-
-    // Verify vendor exists
-    const vendorCheck = await sql`
-      SELECT id FROM vendors WHERE id = ${vendorId}
-    `;
-    
-    if (vendorCheck.length === 0) {
-      return Response.json({ error: "Vendor not found" }, { status: 404 });
-    }
-
-    // Get vendor user_id for notification
-    const vendor = await sql`
-      SELECT v.user_id FROM vendors v WHERE v.id = ${vendorId}
-    `;
-
-    // Resolve facility_id from product if not provided
-    let resolvedFacilityId = facilityId;
-    if (!resolvedFacilityId) {
-      const prod = await sql`
-        SELECT facility_id FROM products WHERE id = ${productId}
-      `;
-      if (prod.length > 0) resolvedFacilityId = prod[0].facility_id;
-    }
-
-    // Create request with 5-minute expiry, initially queued
+    const product = products[0];
     const result = await sql`
-      INSERT INTO availability_requests (buyer_id, vendor_id, facility_id, product_id, quantity_requested, status, expires_at)
-      VALUES (${buyerId}, ${vendorId}, ${resolvedFacilityId}, ${productId}, ${quantity}, 'queued', CURRENT_TIMESTAMP + INTERVAL '5 minutes')
-      RETURNING id, buyer_id, vendor_id, facility_id, product_id, quantity_requested, status, created_at, expires_at
+      WITH vendor_lock AS (
+        SELECT pg_advisory_xact_lock(hashtext(${vendorId}::text))
+      ),
+      queue_state AS (
+        SELECT CASE
+          WHEN COUNT(DISTINCT COALESCE(ar.cart_id::text, ar.id::text)) < 3
+            THEN 'pending'
+          ELSE 'queued'
+        END AS initial_status
+        FROM vendor_lock
+        LEFT JOIN availability_requests ar
+          ON ar.vendor_id = ${vendorId}
+          AND ar.status = 'pending'
+          AND ar.expires_at > CURRENT_TIMESTAMP
+      )
+      INSERT INTO availability_requests (
+        buyer_id, vendor_id, facility_id, product_id,
+        quantity_requested, unit_price, status, expires_at
+      )
+      SELECT
+        ${user.id}, ${vendorId}, ${product.facility_id}, ${productId},
+        ${requestedQuantity}, ${product.price}, queue_state.initial_status,
+        CURRENT_TIMESTAMP + INTERVAL '5 minutes'
+      FROM queue_state
+      RETURNING
+        id, buyer_id, vendor_id, facility_id, product_id,
+        quantity_requested, status, created_at, expires_at
     `;
 
-    // Try to promote: if vendor has < 3 pending, this becomes pending
-    const activeCount = await sql`
-      SELECT COUNT(*) as cnt FROM availability_requests
-      WHERE vendor_id = ${vendorId} AND status = 'pending' AND expires_at > CURRENT_TIMESTAMP
-    `;
-    const isPending = parseInt(activeCount[0].cnt) < 3;
-
-    if (isPending) {
+    if (result[0].status === "pending") {
       await sql`
-        UPDATE availability_requests SET status = 'pending'
-        WHERE id = ${result[0].id}
+        INSERT INTO notifications (user_id, type, title, message, link)
+        VALUES (
+          ${product.vendor_user_id},
+          'request',
+          'Nouvelle demande',
+          ${`Quelqu'un demande: ${requestedQuantity} articles`},
+          '/vendor/requests'
+        )
       `;
-      result[0].status = 'pending';
-
-      // Notify vendor
-      if (vendor.length > 0) {
-        await sql`
-          INSERT INTO notifications (user_id, type, title, message, link)
-          VALUES (
-            ${vendor[0].user_id},
-            'request',
-            'Nouvelle demande',
-            ${`Quelqu'un demande: ${quantity} articles`},
-            '/vendor/requests'
-          )
-        `;
-      }
     }
 
     return Response.json({ request: result[0], success: true });
   } catch (error) {
+    if (error instanceof CartInputError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error creating availability request:", error);
     return Response.json(
       { error: "Internal server error" },

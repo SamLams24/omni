@@ -8,6 +8,7 @@ import useAuth from "@/utils/useAuth";
 export default function ChatModal({
   requestId,
   vendorId,
+  peerId,
   vendorName,
   onClose,
 }) {
@@ -22,7 +23,7 @@ export default function ChatModal({
     loadMessages();
     const interval = setInterval(loadMessages, 5000);
     return () => clearInterval(interval);
-  }, [requestId, vendorId, user]);
+  }, [requestId, vendorId, peerId, user]);
 
   useEffect(() => {
     scrollToBottom();
@@ -36,10 +37,11 @@ export default function ChatModal({
     try {
       const params = requestId
         ? `requestId=${requestId}`
-        : `vendorId=${vendorId}`;
-      const response = await fetch(`/api/chat/messages?${params}`, {
-        headers: user ? { 'x-user-id': user.id } : {},
-      });
+        : new URLSearchParams({
+            vendorId,
+            ...(peerId ? { peerId } : {}),
+          }).toString();
+      const response = await fetch(`/api/chat/messages?${params}`);
       if (!response.ok) throw new Error("Failed to load messages");
 
       const data = await response.json();
@@ -57,13 +59,11 @@ export default function ChatModal({
     try {
       const response = await fetch("/api/chat/messages", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(user ? { 'x-user-id': user.id } : {}),
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           requestId: requestId || null,
           vendorId: vendorId || null,
+          peerId: peerId || null,
           content: newMessage,
         }),
       });

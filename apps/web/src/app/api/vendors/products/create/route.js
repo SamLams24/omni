@@ -1,34 +1,36 @@
 import sql from "@/app/api/utils/sql";
-import { getServerSession } from "@/lib/auth";
+import {
+  CatalogInputError,
+  parseProductCreationInput,
+  readCatalogRequest,
+} from "@/domains/catalog/input";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request) {
   try {
-    let userId;
-    const headerUserId = request.headers.get("x-user-id");
-    if (headerUserId) {
-      userId = headerUserId;
-    } else {
-      const session = await getServerSession(request);
-      if (!session?.data?.user?.id) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
-      }
-      userId = session.data.user.id;
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const body = await request.json();
-    const { vendorId, facilityId, name, price, unit } = body;
+    const userId = user.id;
 
-    if (!vendorId || !name || !price) {
-      return Response.json(
-        { error: "Missing required fields" },
-        { status: 400 },
-      );
-    }
+    const {
+      vendorId,
+      facilityId,
+      name,
+      price,
+      unit,
+    } = await readCatalogRequest(request, parseProductCreationInput);
 
     // Verify vendor ownership
     const vendorCheck = await sql`
-      SELECT v.id 
+      SELECT v.id
       FROM vendors v
+      LEFT JOIN facilities f
+        ON f.id = ${facilityId}
+       AND f.vendor_id = v.id
       WHERE v.id = ${vendorId} AND v.user_id = ${userId}
+        AND (${facilityId} IS NULL OR f.id IS NOT NULL)
     `;
 
     if (vendorCheck.length === 0) {
@@ -55,10 +57,10 @@ export async function POST(request) {
       INSERT INTO products (vendor_id, facility_id, name, price, unit, is_available)
       VALUES (
         ${vendorId},
-        ${facilityId || null},
+        ${facilityId},
         ${name},
         ${price},
-        ${unit || "pièce"},
+        ${unit},
         true
       )
       RETURNING id, vendor_id, name, price, unit, is_available, created_at
@@ -66,6 +68,9 @@ export async function POST(request) {
 
     return Response.json({ product: result[0], success: true });
   } catch (err) {
+    if (err instanceof CatalogInputError) {
+      return Response.json({ error: err.message }, { status: err.status });
+    }
     console.error("POST /api/vendors/products/create error:", err);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }

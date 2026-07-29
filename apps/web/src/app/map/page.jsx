@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Search, MapPin, X, Navigation, Mic, Loader2, ArrowLeft, ChevronRight, Plus, Minus, MessageCircle, ShoppingBag, Utensils, Wrench, Truck, Shirt, Home, Store, Star, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
-import ImageSearch from "@/components/ImageSearch";
 import ChatModal from "@/components/ChatModal";
 import NotificationBell from "@/components/NotificationBell";
 import FavoriteButton from "@/components/FavoriteButton";
@@ -12,6 +11,10 @@ import CartPanel from "@/components/CartPanel";
 import ReviewForm from "@/components/ReviewForm";
 import ReviewList from "@/components/ReviewList";
 import MobileNav from "@/components/MobileNav";
+import {
+  loadNearbyFacilities,
+  searchFacilitiesByText,
+} from "@/domains/discovery/client";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 export default function MapPage() {
@@ -43,7 +46,6 @@ export default function MapPage() {
   const [isOffline, setIsOffline] = useState(false);
   const [cachedVendors, setCachedVendors] = useState([]);
   const [mapLoading, setMapLoading] = useState(true);
-  const [searchLoading, setSearchLoading] = useState(false);
   const [currentZoom, setCurrentZoom] = useState(14);
   const [routeSteps, setRouteSteps] = useState(null);
   const [showRoute, setShowRoute] = useState(false);
@@ -59,6 +61,7 @@ export default function MapPage() {
   const [showSortPicker, setShowSortPicker] = useState(false);
   const [facilitySuggestions, setFacilitySuggestions] = useState([]);
   const facilityDebounceRef = useRef(null);
+  const discoveryRequestRef = useRef(0);
   const [highlightedFacilityId, setHighlightedFacilityId] = useState(null);
 
   // Load cart count on mount
@@ -179,8 +182,7 @@ export default function MapPage() {
     if (!isAuthenticated) return;
     const fetchBalance = async () => {
       try {
-        const userId = JSON.parse(localStorage.getItem("omni_user")).id;
-        const res = await fetch("/api/wallet/balance", { headers: { "x-user-id": userId } });
+        const res = await fetch("/api/wallet/balance");
         if (res.ok) { const d = await res.json(); setWalletBalance(d.balance); }
       } catch {}
     };
@@ -225,7 +227,7 @@ export default function MapPage() {
   };
 
   const useDefaultLocation = () => {
-    console.log('[Map] Using default location: Lagos');
+    console.log('[Map] Using default location: Lomé');
     setUserLocation({ lat: 6.1319, lon: 1.2228 });
     setLocationError(null);
     setShowLocationPrompt(false);
@@ -423,6 +425,8 @@ export default function MapPage() {
   // Cleanup map on unmount
   useEffect(() => {
     return () => {
+      clearTimeout(facilityDebounceRef.current);
+      discoveryRequestRef.current += 1;
       vendorMarkers.current.forEach(m => m.remove());
       vendorMarkers.current = [];
       if (map.current) {
@@ -455,7 +459,7 @@ export default function MapPage() {
       if (currentZoom < 12 && vendors.length > 20) {
         // Filter vendors to those within viewport bounds + buffer
         visibleVendors = vendors.filter(vendor => {
-          if (!vendor.lon || !vendor.lat) return false;
+          if (vendor.lon == null || vendor.lat == null) return false;
           const lng = Number(vendor.lon);
           const lat = Number(vendor.lat);
           return bounds.contains([lng, lat]);
@@ -541,10 +545,12 @@ export default function MapPage() {
   }, [sortedVendors, mapReady, highlightedFacilityId]);
 
   const loadNearbyVendors = async () => {
+    const requestId = ++discoveryRequestRef.current;
     // If offline, use cached vendors
     if (isOffline && cachedVendors.length > 0) {
       console.log('[Map] Using cached vendors (offline)');
       setVendors(cachedVendors);
+      setLoading(false);
       return;
     }
     if (!userLocation) return;
@@ -553,73 +559,68 @@ export default function MapPage() {
     setError(null);
 
     try {
-      console.log('[Map] Loading nearby facilities for location:', userLocation);
-      const response = await fetch("/api/facilities/nearby", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lat: userLocation.lat,
-          lon: userLocation.lon,
-          radius: 10000,
-        }),
+      const facilities = await loadNearbyFacilities({
+        lat: userLocation.lat,
+        lon: userLocation.lon,
       });
-
-      console.log('[Map] API response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[Map] API error response:', errorText);
-        throw new Error(`Failed to load facilities: ${response.status} ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('[Map] Received facilities:', data.facilities?.length || 0, data);
-      setVendors(data.facilities || []);
+      if (requestId !== discoveryRequestRef.current) return;
+      setVendors(facilities);
     } catch (err) {
+      if (requestId !== discoveryRequestRef.current) return;
       console.error('[Map] Error loading facilities:', err);
-      setError(`Impossible de charger les vendeurs: ${err.message}`);
+      setError("Impossible de charger les vendeurs");
     } finally {
-      setLoading(false);
+      if (requestId === discoveryRequestRef.current) setLoading(false);
     }
   };
 
-  const handleSearch = async (e) => {
-    e?.preventDefault();
-    if (!searchQuery.trim() || !userLocation) return;
+  const handleSearch = async (query = searchQuery) => {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery || !userLocation) return;
 
     setLoading(true);
     setError(null);
+    setFacilitySuggestions([]);
+    setHighlightedFacilityId(null);
+    const requestId = ++discoveryRequestRef.current;
 
     try {
-      const response = await fetch("/api/facilities/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lat: userLocation.lat,
-          lon: userLocation.lon,
-          search: searchQuery,
-          radius: 5000,
-        }),
-      });
+      const facilities = await searchFacilitiesByText({
+        lat: userLocation.lat,
+        lon: userLocation.lon,
+      }, normalizedQuery);
+      if (requestId !== discoveryRequestRef.current) return;
+      setVendors(facilities);
 
-      if (!response.ok) {
-        const errBody = await response.text();
-        console.error("[Search] API error:", errBody);
-        throw new Error(errBody || "Search failed");
-      }
-
-      const data = await response.json();
-      setVendors(data.facilities || []);
-
-      if (data.facilities.length === 0) {
+      if (facilities.length === 0) {
         setError("Aucun vendeur trouvé pour cette recherche");
       }
     } catch (err) {
-      console.error(err);
+      if (requestId !== discoveryRequestRef.current) return;
+      console.error("[Map] Search failed:", err);
       setError("Erreur lors de la recherche");
     } finally {
-      setLoading(false);
+      if (requestId === discoveryRequestRef.current) setLoading(false);
     }
+  };
+
+  const selectSearchQuery = (query) => {
+    setSearchQuery(query);
+    void handleSearch(query);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setFacilitySuggestions([]);
+    setHighlightedFacilityId(null);
+    if (userLocation) {
+      void loadNearbyVendors();
+    }
+  };
+
+  const handleSearchSubmit = (event) => {
+    event?.preventDefault();
+    void handleSearch(searchQuery);
   };
 
   const handleVoiceSearch = () => {
@@ -638,9 +639,9 @@ export default function MapPage() {
     recognition.continuous = false;
 
     recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setSearchQuery(transcript);
-      setTimeout(() => handleSearch(), 100);
+      const transcript = event.results[0][0].transcript.trim();
+      if (!transcript) return;
+      selectSearchQuery(transcript);
     };
 
     recognition.onerror = (event) => {
@@ -691,7 +692,11 @@ export default function MapPage() {
       });
 
       // Fly to vendor location
-      if (map.current && vendor.lon && vendor.lat) {
+      if (
+        map.current
+        && vendor.lon != null
+        && vendor.lat != null
+      ) {
         const lon = Number(vendor.lon);
         const lat = Number(vendor.lat);
         const currentCenter = map.current.getCenter();
@@ -952,7 +957,7 @@ export default function MapPage() {
                   onClick={useDefaultLocation}
                   className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/40 text-xs transition-all"
                 >
-                  Utiliser la position par défaut (Lagos)
+                  Utiliser la position par défaut (Lomé)
                 </button>
               </div>
             </>
@@ -1002,7 +1007,14 @@ export default function MapPage() {
       <div className={`absolute ${isMobile ? "top-16" : "top-6"} left-1/2 -translate-x-1/2 z-20 w-full max-w-lg px-4`}>
         <div className="relative">
           <div className="flex items-center bg-black/60 backdrop-blur-xl rounded-2xl border border-white/10 px-4 py-3.5 shadow-2xl shadow-black/50">
-            <Search size={16} className="text-white/40 shrink-0 mr-2 cursor-pointer" onClick={handleSearch} />
+            <button
+              type="button"
+              onClick={handleSearchSubmit}
+              className="text-white/40 hover:text-white/70 shrink-0 mr-2 transition-colors"
+              aria-label="Lancer la recherche"
+            >
+              <Search size={16} />
+            </button>
             <input
               type="text"
               value={searchQuery}
@@ -1010,14 +1022,27 @@ export default function MapPage() {
                 setSearchQuery(e.target.value);
                 handleFacilitySearch(e.target.value);
               }}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearchSubmit(e);
+              }}
               placeholder="Chercher un produit, vendeur..."
               className="flex-1 bg-transparent text-white/90 placeholder-white/40 text-sm outline-none font-light"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
+                aria-label="Effacer la recherche"
+              >
+                <X size={15} className="text-white/40" />
+              </button>
+            )}
             <button
               type="button"
               onClick={handleVoiceSearch}
               className="p-1.5 hover:bg-white/10 rounded-full transition-colors mr-1"
+              aria-label="Recherche vocale"
             >
               <Mic size={16} className="text-white/50" />
             </button>
@@ -1055,12 +1080,6 @@ export default function MapPage() {
                 </div>
               )}
             </div>
-            <ImageSearch
-              onSearchQuery={(query) => {
-                setSearchQuery(query);
-                setTimeout(() => handleSearch(), 100);
-              }}
-            />
           </div>
 
           {/* Unified dropdown: facilities + categories */}
@@ -1080,7 +1099,9 @@ export default function MapPage() {
                 <>
                   <p className="text-[10px] text-white/20 uppercase tracking-widest px-3 pt-2 pb-1">Catégories</p>
                   {categorySuggestions.map((cat) => (
-                    <button key={cat} onClick={() => { setSearchQuery(cat); handleSearch(); }}
+                    <button
+                      key={cat}
+                      onClick={() => selectSearchQuery(cat)}
                       className="w-full text-left px-3 py-2 text-xs text-white/50 hover:bg-white/5 hover:text-white transition-all flex items-center gap-2"
                     >
                       <span className="text-white/20">#</span> {cat}
@@ -1106,10 +1127,7 @@ export default function MapPage() {
             return (
               <button
                 key={cat.label}
-                onClick={() => {
-                  setSearchQuery(cat.label);
-                  setTimeout(() => handleSearch(), 100);
-                }}
+                onClick={() => selectSearchQuery(cat.label)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-white/70 hover:text-white text-xs transition-all whitespace-nowrap shrink-0"
               >
                 <Icon size={12} />

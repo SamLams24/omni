@@ -20,11 +20,10 @@ export default function SubscriptionsPage() {
   }, []);
 
   const loadData = async () => {
-    const userId = JSON.parse(localStorage.getItem("omni_user")).id;
     try {
       const [subRes, walRes] = await Promise.all([
-        fetch("/api/subscriptions/status", { headers: { "x-user-id": userId } }),
-        fetch("/api/wallet/balance", { headers: { "x-user-id": userId } }),
+        fetch("/api/subscriptions/status"),
+        fetch("/api/wallet/balance"),
       ]);
       if (subRes.ok) {
         const sd = await subRes.json();
@@ -41,12 +40,11 @@ export default function SubscriptionsPage() {
   const upgrade = async (type) => {
     setSending(type);
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const fee = type === "vendor" ? 5000 : 1000;
       if (balance < fee) { toast("Solde insuffisant — recharge d'abord"); setSending(null); return; }
       const res = await fetch("/api/subscriptions/upgrade", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type, tier: "premium" }),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error); }

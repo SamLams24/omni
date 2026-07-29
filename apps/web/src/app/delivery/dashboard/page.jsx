@@ -17,14 +17,11 @@ export default function DeliveryDashboardPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
-      const headers = { "x-user-id": userId };
-
       const [profRes, tripsRes, availRes, myDelRes] = await Promise.all([
-        fetch("/api/delivery/profile", { headers }),
-        fetch("/api/delivery/trips/active", { headers }),
-        fetch("/api/delivery/available", { headers }),
-        fetch("/api/delivery/my-active", { headers }),
+        fetch("/api/delivery/profile"),
+        fetch("/api/delivery/trips/active"),
+        fetch("/api/delivery/available"),
+        fetch("/api/delivery/my-active"),
       ]);
 
       if (!profRes.ok || !tripsRes.ok) throw new Error();
@@ -65,9 +62,8 @@ export default function DeliveryDashboardPage() {
   const toggleActive = async () => {
     setToggling(true);
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const res = await fetch("/api/delivery/toggle", {
-        method: "POST", headers: { "x-user-id": userId },
+        method: "POST",
       });
       if (!res.ok) { const err = await res.json(); toast(err.error || "Erreur"); return; }
       toast(profile?.is_active ? "Désactivé" : "Activé !");
@@ -77,10 +73,9 @@ export default function DeliveryDashboardPage() {
 
   const switchMode = async (mode) => {
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const res = await fetch("/api/delivery/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ activeMode: mode }),
       });
       if (res.ok) loadData();
@@ -88,9 +83,8 @@ export default function DeliveryDashboardPage() {
   };
 
   const deactivateTrip = async (tripId) => {
-    const userId = JSON.parse(localStorage.getItem("omni_user")).id;
     const res = await fetch(`/api/delivery/planned-trip/${tripId}`, {
-      method: "DELETE", headers: { "x-user-id": userId },
+      method: "DELETE",
     });
     if (res.ok) { toast("Trajet désactivé"); loadData(); }
   };
@@ -98,10 +92,9 @@ export default function DeliveryDashboardPage() {
   const acceptMatch = async (requestId, tripId) => {
     setAccepting(requestId);
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const res = await fetch("/api/delivery/accept", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ requestId, tripId }),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
@@ -113,10 +106,9 @@ export default function DeliveryDashboardPage() {
   const confirmDelivery = async (requestId) => {
     setConfirming(requestId);
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const res = await fetch("/api/delivery/confirm", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ requestId }),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
@@ -126,10 +118,9 @@ export default function DeliveryDashboardPage() {
   };
 
   const switchVehicle = async (type) => {
-    const userId = JSON.parse(localStorage.getItem("omni_user")).id;
     await fetch("/api/delivery/vehicles/switch", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-user-id": userId },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type }),
     });
     loadData();

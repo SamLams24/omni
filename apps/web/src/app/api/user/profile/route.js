@@ -1,11 +1,13 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) {
-      return Response.json({ user: null });
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
     const result = await sql`
       SELECT id, name, email, phone, lat, lon, preferred_language
@@ -25,10 +27,11 @@ export async function GET(request) {
 
 export async function PUT(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
     const body = await request.json();
     const { name, phone, lat, lon, preferred_language } = body;

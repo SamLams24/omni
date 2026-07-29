@@ -120,10 +120,7 @@ export default function CartPanel({ isOpen, onClose, onItemCountChange }) {
 
       const response = await fetch("/api/cart/send", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": userId,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 

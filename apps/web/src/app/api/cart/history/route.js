@@ -1,13 +1,59 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
-    console.log("[cart/history] userId:", userId);
+    await sql`
+      WITH expired_carts AS (
+        UPDATE carts
+        SET status = 'denied', responded_at = CURRENT_TIMESTAMP
+        WHERE buyer_id = ${userId}
+          AND status = 'pending'
+          AND expires_at <= CURRENT_TIMESTAMP
+        RETURNING id, facility_id
+      ),
+      expired_requests AS (
+        UPDATE availability_requests
+        SET status = 'denied', quantity_confirmed = NULL,
+            responded_at = CURRENT_TIMESTAMP
+        WHERE cart_id IN (SELECT id FROM expired_carts)
+          AND status IN ('pending', 'queued')
+        RETURNING id
+      ),
+      cancelled_deliveries AS (
+        UPDATE delivery_requests
+        SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+        WHERE cart_id IN (SELECT id FROM expired_carts)
+          AND status = 'awaiting_confirmation'
+        RETURNING id
+      ),
+      affected_vendors AS (
+        SELECT DISTINCT f.vendor_id
+        FROM expired_carts ec
+        JOIN facilities f ON f.id = ec.facility_id
+      ),
+      next_groups AS (
+        SELECT DISTINCT ON (ar.vendor_id)
+          ar.vendor_id, ar.id, ar.cart_id
+        FROM availability_requests ar
+        JOIN affected_vendors av ON av.vendor_id = ar.vendor_id
+        WHERE ar.status = 'queued'
+          AND ar.expires_at > CURRENT_TIMESTAMP
+        ORDER BY ar.vendor_id, ar.created_at ASC
+      )
+      UPDATE availability_requests ar
+      SET status = 'pending'
+      FROM next_groups ng
+      WHERE
+        (ng.cart_id IS NOT NULL AND ar.cart_id = ng.cart_id)
+        OR (ng.cart_id IS NULL AND ar.id = ng.id)
+    `;
 
     const carts = await sql`
       SELECT 
@@ -31,8 +77,6 @@ export async function GET(request) {
       LIMIT 50
     `;
 
-    console.log("[cart/history] carts found:", carts.length);
-
     const cartIds = carts.map(c => c.id);
     let allRequests = [];
     let allDeliveries = [];
@@ -48,7 +92,7 @@ export async function GET(request) {
           ar.created_at,
           ar.responded_at,
           p.name as product_name,
-          p.price as product_price,
+          COALESCE(ar.unit_price, p.price) as product_price,
           p.unit as product_unit
         FROM availability_requests ar
         JOIN products p ON p.id = ar.product_id
@@ -56,17 +100,14 @@ export async function GET(request) {
         ORDER BY ar.created_at ASC
       `;
 
-      console.log("[cart/history] requests found:", allRequests.length);
-
       try {
         allDeliveries = await sql`
           SELECT id, cart_id, status, dropoff_address, updated_at
           FROM delivery_requests
           WHERE cart_id = ANY(${cartIds})
         `;
-        console.log("[cart/history] deliveries found:", allDeliveries.length);
       } catch (delErr) {
-        console.error("[cart/history] delivery query failed:", delErr.message);
+        console.error("[cart/history] delivery query failed");
       }
     }
 
@@ -89,7 +130,7 @@ export async function GET(request) {
 
     return Response.json({ carts: result });
   } catch (error) {
-    console.error("[cart/history] UNCAUGHT:", error.message, error.stack);
+    console.error("[cart/history] request failed");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -43,12 +43,7 @@ export default function VendorDashboardPage() {
 
   const loadVendorData = async () => {
     try {
-      const storedUser = localStorage.getItem("omni_user");
-      const userId = storedUser ? JSON.parse(storedUser).id : null;
-
-      const response = await fetch("/api/vendors/my-vendor", {
-        headers: userId ? { 'x-user-id': userId } : {},
-      });
+      const response = await fetch("/api/vendors/my-vendor");
 
       if (!response.ok) {
         setVendor(null);
@@ -60,14 +55,10 @@ export default function VendorDashboardPage() {
       setVendor(data.vendor);
 
       if (data.vendor) {
-        const requestsRes = await fetch("/api/vendors/requests", {
-          headers: userId ? { 'x-user-id': userId } : {},
-        });
+        const requestsRes = await fetch("/api/vendors/requests");
         const requestsData = await requestsRes.json();
 
-        const convsRes = await fetch("/api/vendors/conversations", {
-          headers: userId ? { 'x-user-id': userId } : {},
-        });
+        const convsRes = await fetch("/api/vendors/conversations");
         const convsData = await convsRes.json();
 
         setStats({
@@ -76,17 +67,13 @@ export default function VendorDashboardPage() {
         });
 
         // Fetch pending carts
-        if (userId) {
-          try {
-            const cartsRes = await fetch(`/api/cart/vendor-pending`, {
-              headers: { "x-user-id": userId },
-            });
-            if (cartsRes.ok) {
-              const cd = await cartsRes.json();
-              setPendingCarts(cd.carts || []);
-            }
-          } catch {}
-        }
+        try {
+          const cartsRes = await fetch(`/api/cart/vendor-pending`);
+          if (cartsRes.ok) {
+            const cd = await cartsRes.json();
+            setPendingCarts(cd.carts || []);
+          }
+        } catch {}
       }
     } catch (err) {
       console.error(err);
@@ -97,16 +84,12 @@ export default function VendorDashboardPage() {
   };
 
   const toggleFacilityStatus = async (facilityId, isOnline) => {
-    const storedUser = localStorage.getItem("omni_user");
-    const userId = storedUser ? JSON.parse(storedUser).id : null;
-
     setTogglingFacility(facilityId);
     try {
       const response = await fetch("/api/facilities/toggle-status", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          ...(userId ? { 'x-user-id': userId } : {})
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           facilityId,
@@ -130,9 +113,6 @@ export default function VendorDashboardPage() {
     setSavingProduct(true);
 
     try {
-      const storedUser = localStorage.getItem("omni_user");
-      const userId = storedUser ? JSON.parse(storedUser).id : null;
-
       const url = editingProduct
         ? `/api/vendors/products/${editingProduct.id}`
         : "/api/vendors/products/create";
@@ -140,8 +120,7 @@ export default function VendorDashboardPage() {
       const response = await fetch(url, {
         method: editingProduct ? "PUT" : "POST",
         headers: {
-          "Content-Type": "application/json",
-          ...(userId ? { 'x-user-id': userId } : {})
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           vendorId: vendor.id,
@@ -170,12 +149,8 @@ export default function VendorDashboardPage() {
     if (!confirm("Supprimer ce produit ?")) return;
 
     try {
-      const storedUser = localStorage.getItem("omni_user");
-      const userId = storedUser ? JSON.parse(storedUser).id : null;
-
       const response = await fetch(`/api/vendors/products/${productId}`, {
         method: "DELETE",
-        headers: userId ? { 'x-user-id': userId } : {},
       });
 
       if (!response.ok) throw new Error("Erreur");

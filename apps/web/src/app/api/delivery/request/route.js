@@ -1,11 +1,13 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
     const body = await request.json();
     const { cartId, dropoffLat, dropoffLon, dropoffAddress } = body;
@@ -23,14 +25,28 @@ export async function POST(request) {
       return Response.json({ error: "Cart must be confirmed first" }, { status: 400 });
     }
 
+    const existing = await sql`
+      SELECT id
+      FROM delivery_requests
+      WHERE cart_id = ${cartId}
+        AND status NOT IN ('delivered', 'cancelled')
+      LIMIT 1
+    `;
+    if (existing.length > 0) {
+      return Response.json(
+        { error: "An active delivery request already exists for this cart" },
+        { status: 409 },
+      );
+    }
+
     // Get facility location for pickup
     const facilities = await sql`
       SELECT ST_Y(location::geometry) as lat, ST_X(location::geometry) as lon FROM facilities WHERE id = ${carts[0].facility_id}
     `;
 
     const req = await sql`
-      INSERT INTO delivery_requests (cart_id, buyer_id, facility_id, pickup_lat, pickup_lon, dropoff_lat, dropoff_lon, dropoff_address)
-      VALUES (${cartId}, ${userId}, ${carts[0].facility_id},
+      INSERT INTO delivery_requests (cart_id, buyer_id, facility_id, status, pickup_lat, pickup_lon, dropoff_lat, dropoff_lon, dropoff_address)
+      VALUES (${cartId}, ${userId}, ${carts[0].facility_id}, 'looking',
               ${facilities[0].lat}, ${facilities[0].lon},
               ${dropoffLat || null}, ${dropoffLon || null}, ${dropoffAddress || null})
       RETURNING *

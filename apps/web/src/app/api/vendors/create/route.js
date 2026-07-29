@@ -1,36 +1,30 @@
 import sql from "@/app/api/utils/sql";
+import {
+  CatalogInputError,
+  parseVendorCreationInput,
+  readCatalogRequest,
+} from "@/domains/catalog/input";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { name, category, description, lat, lon, products, userId, phone } = body;
-
-    console.log('[Create Vendor] Request:', { name, category, lat, lon, userId });
-
-    if (!name || !category || !lat || !lon) {
-      return Response.json(
-        { error: "Missing required fields" },
-        { status: 400 },
-      );
-    }
-
-    if (!userId) {
-      console.log('[Create Vendor] No userId provided');
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
-    // Create user in users table if not exists (Neon Auth user)
-    const existingUser = await sql`
-      SELECT id FROM users WHERE id = ${userId}::uuid
-    `;
-    
-    if (existingUser.length === 0) {
-      console.log('[Create Vendor] Creating user in users table...');
-      await sql`
-        INSERT INTO users (id, name, email, phone, created_at)
-        VALUES (${userId}::uuid, 'User', 'user@example.com', ${phone || '+22800000000'}, CURRENT_TIMESTAMP)
-      `;
-    }
+    const {
+      name,
+      category,
+      description,
+      lat,
+      lon,
+      products,
+      phone,
+    } = await readCatalogRequest(request, parseVendorCreationInput);
+
+    console.log('[Create Vendor] Request:', { name, category, lat, lon });
 
     // Check if user already has a vendor
     const existingVendor = await sql`
@@ -50,7 +44,15 @@ export async function POST(request) {
     `;
     console.log('[Create Vendor] Inserting vendor...');
     
-    const insertResult = await sql(query, [name, category, description || null, lon, lat, userId, phone || '+22800000000']);
+    const insertResult = await sql(query, [
+      name,
+      category,
+      description,
+      lon,
+      lat,
+      userId,
+      phone,
+    ]);
     console.log('[Create Vendor] Insert result:', insertResult);
 
     if (!insertResult.length) {
@@ -63,7 +65,7 @@ export async function POST(request) {
     const facilityResult = await sql`
       INSERT INTO facilities (vendor_id, name, category, type, description, location)
       VALUES (
-        ${vendorId}, ${name}, ${category}, 'fixed', ${description || null},
+        ${vendorId}, ${name}, ${category}, 'fixed', ${description},
         ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)
       )
       RETURNING id
@@ -71,25 +73,33 @@ export async function POST(request) {
     const facilityId = facilityResult[0].id;
 
     // Insert products if provided
-    if (products && products.length > 0) {
+    if (products.length > 0) {
       for (const product of products) {
-        if (product.name && product.price) {
-          await sql(
-            `INSERT INTO products (vendor_id, facility_id, name, price, unit, is_available)
-             VALUES ($1, $2, $3, $4, true)`,
-            [vendorId, facilityId, product.name, product.price, product.unit || 'pièce']
-          );
-        }
+        await sql(
+          `INSERT INTO products (
+             vendor_id, facility_id, name, price, unit, is_available
+           )
+           VALUES ($1, $2, $3, $4, $5, true)`,
+          [
+            vendorId,
+            facilityId,
+            product.name,
+            product.price,
+            product.unit,
+          ],
+        );
       }
     }
 
     console.log('[Create Vendor] Success!');
     return Response.json({ success: true, vendorId, facilityId });
   } catch (error) {
+    if (error instanceof CatalogInputError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
     console.error("[Create Vendor] Error:", error);
     return Response.json({ 
-      error: "Failed to create vendor", 
-      details: error.message 
+      error: "Failed to create vendor",
     }, { status: 500 });
   }
 }

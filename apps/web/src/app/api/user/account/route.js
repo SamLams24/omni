@@ -1,11 +1,13 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function DELETE(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
     // CASCADE: vendors → products, favorites, availability_requests, messages
     await sql`DELETE FROM users WHERE id = ${userId}`;

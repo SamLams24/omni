@@ -28,7 +28,10 @@ export default function RespondModal({ cart, onClose, onDone }) {
 
   const updateQty = (idx, val) => {
     const updated = [...items];
-    const qty = Math.max(0, parseInt(val) || 0);
+    const qty = Math.min(
+      updated[idx].quantity,
+      Math.max(0, parseInt(val) || 0),
+    );
     updated[idx].quantityConfirmed = qty;
     updated[idx].status = qty > 0 ? "confirmed" : "denied";
     setItems(updated);
@@ -37,25 +40,30 @@ export default function RespondModal({ cart, onClose, onDone }) {
   const confirmAll = async () => {
     setSending(true);
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const res = await fetch("/api/cart/respond", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cartId: cart.id, confirmAll: true }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.error || "Impossible de confirmer le panier");
+      }
       toast("Demande confirmée !");
       onDone();
-    } catch { toast("Erreur"); } finally { setSending(false); }
+    } catch (error) {
+      toast(error.message || "Erreur");
+    } finally {
+      setSending(false);
+    }
   };
 
   const sendResponse = async () => {
     setSending(true);
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const res = await fetch("/api/cart/respond", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           cartId: cart.id,
           items: items.map(i => ({
@@ -65,10 +73,17 @@ export default function RespondModal({ cart, onClose, onDone }) {
           })),
         }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.error || "Impossible d'envoyer la réponse");
+      }
       toast("Réponse envoyée !");
       onDone();
-    } catch { toast("Erreur"); } finally { setSending(false); }
+    } catch (error) {
+      toast(error.message || "Erreur");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (

@@ -1,24 +1,46 @@
 import sql from "@/app/api/utils/sql";
+import { getAuthenticatedUser } from "@/lib/auth";
+import {
+  DeliveryInputError,
+  parseDeliveryActionInput,
+} from "@/domains/delivery/input";
+import {
+  hasOppositeDirection,
+  resolveDeliveryPoints,
+} from "@/domains/delivery/geo";
 
 export async function POST(request) {
   try {
-    const userId = request.headers.get("x-user-id");
-    if (!userId) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
-    const body = await request.json();
-    const { requestId, tripId } = body;
-
-    if (!requestId || !tripId) {
-      return Response.json({ error: "requestId and tripId required" }, { status: 400 });
-    }
+    const { requestId, tripId } = parseDeliveryActionInput(
+      await request.json(),
+      ["requestId", "tripId"],
+    );
 
     const profile = await sql`
-      SELECT id FROM delivery_profiles WHERE user_id = ${userId}
+      SELECT id, is_active FROM delivery_profiles WHERE user_id = ${userId}
     `;
     if (profile.length === 0) {
       return Response.json({ error: "Register as delivery person first" }, { status: 400 });
+    }
+    if (!profile[0].is_active) {
+      return Response.json({ error: "Activate your delivery profile first" }, { status: 403 });
+    }
+
+    const ownedTrip = await sql`
+      SELECT id
+      FROM delivery_planned_trips
+      WHERE id = ${tripId}
+        AND delivery_profile_id = ${profile[0].id}
+        AND is_active = true
+    `;
+    if (ownedTrip.length === 0) {
+      return Response.json({ error: "Trip not found" }, { status: 404 });
     }
 
     // Free tier limit: max 3 deliveries/day
@@ -42,7 +64,11 @@ export async function POST(request) {
 
     // Get new request's pickup/dropoff
     const newReq = await sql`
-      SELECT pickup_location, dropoff_location FROM delivery_requests WHERE id = ${requestId}
+      SELECT pickup_lat, pickup_lon, dropoff_lat, dropoff_lon
+      FROM delivery_requests
+      WHERE id = ${requestId}
+        AND status = 'looking'
+        AND buyer_id <> ${userId}
     `;
     if (newReq.length === 0) {
       return Response.json({ error: "Request not found" }, { status: 404 });
@@ -50,47 +76,25 @@ export async function POST(request) {
 
     // Already matched deliveries for this profile → conflict detection
     const existing = await sql`
-      SELECT pickup_location, dropoff_location FROM delivery_requests
+      SELECT pickup_lat, pickup_lon, dropoff_lat, dropoff_lon
+      FROM delivery_requests
       WHERE delivery_profile_id = ${profile[0].id}
         AND status = 'matched'
         AND id != ${requestId}
     `;
 
     if (existing.length > 0) {
-      // Parse new request coords from PostGIS WKT: POINT(lon lat)
-      const parseWkt = (wkt) => {
-        const m = wkt.match(/POINT\(([\d.-]+) ([\d.-]+)\)/i);
-        return m ? { lon: parseFloat(m[1]), lat: parseFloat(m[2]) } : null;
-      };
-
-      const newPickup = parseWkt(newReq[0].pickup_location);
-      const newDropoff = parseWkt(newReq[0].dropoff_location);
-
-      if (newPickup && newDropoff) {
-        for (const ex of existing) {
-          const exPickup = parseWkt(ex.pickup_location);
-          const exDropoff = parseWkt(ex.dropoff_location);
-          if (!exPickup || !exDropoff) continue;
-
-          // Vector angle check: direction of existing vs new
-          const exDx = exDropoff.lon - exPickup.lon;
-          const exDy = exDropoff.lat - exPickup.lat;
-          const newDx = newDropoff.lon - newPickup.lon;
-          const newDy = newDropoff.lat - newPickup.lat;
-
-          const dot = exDx * newDx + exDy * newDy;
-          const magEx = Math.sqrt(exDx * exDx + exDy * exDy);
-          const magNew = Math.sqrt(newDx * newDx + newDy * newDy);
-
-          if (magEx > 0 && magNew > 0) {
-            const cosAngle = dot / (magEx * magNew);
-            const angle = Math.acos(Math.max(-1, Math.min(1, cosAngle))) * (180 / Math.PI);
-            if (angle > 90) {
-              return Response.json({
-                error: "Conflit directionnel : cette livraison est en sens opposé à une livraison déjà acceptée.",
-              }, { status: 409 });
-            }
-          }
+      const newDelivery = resolveDeliveryPoints(newReq[0]);
+      for (const current of existing) {
+        if (
+          hasOppositeDirection(
+            newDelivery,
+            resolveDeliveryPoints(current),
+          )
+        ) {
+          return Response.json({
+            error: "Conflit directionnel : cette livraison est en sens opposé à une livraison déjà acceptée.",
+          }, { status: 409 });
         }
       }
     }
@@ -108,6 +112,9 @@ export async function POST(request) {
 
     return Response.json({ request: result[0] });
   } catch (error) {
+    if (error instanceof DeliveryInputError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error accepting delivery:", error);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }

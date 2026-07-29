@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { authClient } from "@/lib/auth-client";
+import { getSession } from "@/lib/auth-client";
 
 const useUser = () => {
   const [user, setUser] = useState(null);
@@ -7,24 +7,16 @@ const useUser = () => {
 
   const fetchUser = useCallback(async () => {
     try {
-      // First check localStorage for immediate auth
-      const storedUser = localStorage.getItem("omni_user");
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
-        setLoading(false);
-        return;
-      }
-
-      // Then check Neon Auth session
-      const session = await authClient.getSession();
-      if (session?.data?.user) {
-        localStorage.setItem("omni_user", JSON.stringify(session.data.user));
-        setUser(session.data.user);
+      const session = await getSession();
+      if (session.user) {
+        localStorage.setItem("omni_user", JSON.stringify(session.user));
+        setUser(session.user);
       } else {
+        localStorage.removeItem("omni_user");
         setUser(null);
       }
-    } catch (error) {
-      console.error('Error fetching user:', error);
+    } catch {
+      localStorage.removeItem("omni_user");
       setUser(null);
     } finally {
       setLoading(false);

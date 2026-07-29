@@ -1,37 +1,45 @@
 import sql from "@/app/api/utils/sql";
+import {
+  CatalogInputError,
+  parseVendorUpdateInput,
+  readCatalogRequest,
+} from "@/domains/catalog/input";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function PUT(request) {
   try {
-    let userId = request.headers.get("x-user-id");
-    if (!userId) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
-    const body = await request.json();
-    const { vendorId, name, category, description, phone, email, address, neighborhood, lat, lon } = body;
-
-    if (!vendorId) {
-      return Response.json({ error: "vendorId required" }, { status: 400 });
-    }
+    const { vendorId, fields } = await readCatalogRequest(
+      request,
+      parseVendorUpdateInput,
+    );
 
     const sets = [];
     const values = [];
     let idx = 1;
 
-    if (name !== undefined) { sets.push(`name = $${idx++}`); values.push(name); }
-    if (category !== undefined) { sets.push(`category = $${idx++}`); values.push(category); }
-    if (description !== undefined) { sets.push(`description = $${idx++}`); values.push(description); }
-    if (phone !== undefined) { sets.push(`phone = $${idx++}`); values.push(phone); }
-    if (email !== undefined) { sets.push(`email = $${idx++}`); values.push(email); }
-    if (address !== undefined) { sets.push(`address = $${idx++}`); values.push(address); }
-    if (neighborhood !== undefined) { sets.push(`neighborhood = $${idx++}`); values.push(neighborhood); }
-    if (lat !== undefined && lon !== undefined) {
-      sets.push(`location = ST_SetSRID(ST_Point($${idx++}, $${idx++}), 4326)`);
-      values.push(lon, lat);
+    for (const field of [
+      "name",
+      "category",
+      "description",
+      "phone",
+      "email",
+      "address",
+      "neighborhood",
+    ]) {
+      if (field in fields) {
+        sets.push(`${field} = $${idx++}`);
+        values.push(fields[field]);
+      }
     }
-
-    if (sets.length === 0) {
-      return Response.json({ error: "No fields to update" }, { status: 400 });
+    if (fields.location) {
+      sets.push(`location = ST_SetSRID(ST_Point($${idx++}, $${idx++}), 4326)`);
+      values.push(fields.location.lon, fields.location.lat);
     }
 
     sets.push(`updated_at = CURRENT_TIMESTAMP`);
@@ -50,6 +58,9 @@ export async function PUT(request) {
 
     return Response.json({ vendor: result[0], success: true });
   } catch (err) {
+    if (err instanceof CatalogInputError) {
+      return Response.json({ error: err.message }, { status: err.status });
+    }
     console.error("PUT /api/vendors/update error:", err);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }

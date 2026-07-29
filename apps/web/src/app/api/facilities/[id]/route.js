@@ -1,5 +1,10 @@
 import sql from "@/app/api/utils/sql";
-import { getServerSession } from "@/lib/auth";
+import {
+  CatalogInputError,
+  parseFacilityUpdateInput,
+  readCatalogRequest,
+} from "@/domains/catalog/input";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request, { params }) {
   try {
@@ -53,20 +58,17 @@ export async function GET(request, { params }) {
 
 export async function PUT(request, { params }) {
   try {
-    let userId;
-    const headerUserId = request.headers.get("x-user-id");
-    if (headerUserId) {
-      userId = headerUserId;
-    } else {
-      const session = await getServerSession(request);
-      if (!session?.data?.user?.id) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
-      }
-      userId = session.data.user.id;
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
+
     const { id } = params;
-    const body = await request.json();
-    const { name, category, type, description, address, neighborhood } = body;
+    const fields = await readCatalogRequest(
+      request,
+      parseFacilityUpdateInput,
+    );
 
     const facility = await sql`
       SELECT f.id FROM facilities f
@@ -80,20 +82,33 @@ export async function PUT(request, { params }) {
     const updates = [];
     const values = [];
     let idx = 1;
-    if (name !== undefined) { updates.push("name = $" + idx++); values.push(name); }
-    if (category !== undefined) { updates.push("category = $" + idx++); values.push(category); }
-    if (type !== undefined) { updates.push("type = $" + idx++); values.push(type); }
-    if (description !== undefined) { updates.push("description = $" + idx++); values.push(description); }
-    if (address !== undefined) { updates.push("address = $" + idx++); values.push(address); }
-    if (neighborhood !== undefined) { updates.push("neighborhood = $" + idx++); values.push(neighborhood); }
-    if (updates.length === 0) {
-      return Response.json({ error: "No fields to update" }, { status: 400 });
+    for (const field of [
+      "name",
+      "category",
+      "type",
+      "description",
+      "address",
+      "neighborhood",
+    ]) {
+      if (field in fields) {
+        updates.push(`${field} = $${idx++}`);
+        values.push(fields[field]);
+      }
+    }
+    if (fields.location) {
+      updates.push(
+        `location = ST_SetSRID(ST_Point($${idx++}, $${idx++}), 4326)`,
+      );
+      values.push(fields.location.lon, fields.location.lat);
     }
     values.push(id);
     const query = "UPDATE facilities SET " + updates.join(", ") + ", updated_at = CURRENT_TIMESTAMP WHERE id = $" + idx + " RETURNING id, name as facility_name, category, type, description, address, neighborhood";
     const result = await sql(query, values);
     return Response.json({ facility: result[0], success: true });
   } catch (error) {
+    if (error instanceof CatalogInputError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error updating facility:", error);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
@@ -101,17 +116,12 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    let userId;
-    const headerUserId = request.headers.get("x-user-id");
-    if (headerUserId) {
-      userId = headerUserId;
-    } else {
-      const session = await getServerSession(request);
-      if (!session?.data?.user?.id) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
-      }
-      userId = session.data.user.id;
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
+
     const { id } = params;
     const result = await sql`
       DELETE FROM facilities f

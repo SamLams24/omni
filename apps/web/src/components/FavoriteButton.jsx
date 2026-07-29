@@ -20,16 +20,12 @@ export default function FavoriteButton({ vendorId, initialFavorited = false }) {
     try {
       if (favorited) {
         await fetch(`/api/favorites?vendorId=${vendorId}`, {
-          method: "DELETE",
-          headers: { 'x-user-id': userId }
+          method: "DELETE"
         });
       } else {
         await fetch("/api/favorites", {
           method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            'x-user-id': userId
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ vendorId })
         });
       }

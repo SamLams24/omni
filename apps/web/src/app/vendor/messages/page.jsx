@@ -19,12 +19,7 @@ export default function VendorMessagesPage() {
 
   const loadConversations = async () => {
     try {
-      const storedUser = localStorage.getItem("omni_user");
-      const userId = storedUser ? JSON.parse(storedUser).id : null;
-
-      const response = await fetch("/api/vendors/conversations", {
-        headers: userId ? { 'x-user-id': userId } : {},
-      });
+      const response = await fetch("/api/vendors/conversations");
       if (!response.ok) throw new Error("Failed to load conversations");
 
       const data = await response.json();
@@ -102,8 +97,12 @@ export default function VendorMessagesPage() {
         <ChatModal
           requestId={selectedConv.request_id}
           vendorId={selectedConv.vendor_id}
-          vendorName="Client"
-          onClose={() => setSelectedConv(null)}
+          peerId={selectedConv.peer_id}
+          vendorName={selectedConv.peer_name || "Client"}
+          onClose={() => {
+            setSelectedConv(null);
+            loadConversations();
+          }}
         />
       )}
     </div>

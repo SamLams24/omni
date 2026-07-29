@@ -43,8 +43,8 @@ export default function Dashboard() {
 
       try {
         const [cartRes, favRes] = await Promise.all([
-          fetch("/api/cart/history", { headers: { "x-user-id": userId } }),
-          fetch("/api/favorites", { headers: { "x-user-id": userId } }),
+          fetch("/api/cart/history"),
+          fetch("/api/favorites"),
         ]);
 
         if (cartRes.ok) {

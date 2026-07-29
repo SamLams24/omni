@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Heart, MapPin, Loader2, LogOut, ArrowLeft } from "lucide-react";
+import { getSession, signOut } from "@/lib/auth-client";
 
 export default function UserProfilePage() {
   const navigate = useNavigate();
@@ -11,25 +12,29 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("omni_user");
-    if (!storedUser) {
-      navigate("/auth");
-      return;
-    }
+    const loadProfile = async () => {
+      try {
+        const session = await getSession();
+        if (!session.user) {
+          localStorage.removeItem("omni_user");
+          navigate("/auth");
+          return;
+        }
 
-    const userData = JSON.parse(storedUser);
-    setUser(userData);
+        setUser(session.user);
+        const response = await fetch("/api/favorites");
+        const data = await response.json();
+        setFavorites(data.favorites || []);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    fetch(`/api/favorites?userId=${userData.id}`, {
-      headers: { 'x-user-id': userData.id }
-    })
-      .then(res => res.json())
-      .then(data => setFavorites(data.favorites || []))
-      .finally(() => setLoading(false));
+    loadProfile();
   }, [navigate]);
 
   const handleSignOut = async () => {
-    await fetch("/api/auth/session", { method: "POST" });
+    await signOut();
     localStorage.removeItem("omni_user");
     navigate("/");
   };

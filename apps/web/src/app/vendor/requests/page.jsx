@@ -27,12 +27,7 @@ export default function VendorRequestsPage() {
 
   const loadRequests = async () => {
     try {
-      const storedUser = localStorage.getItem("omni_user");
-      const userId = storedUser ? JSON.parse(storedUser).id : null;
-
-      const response = await fetch("/api/vendors/requests", {
-        headers: userId ? { 'x-user-id': userId } : {},
-      });
+      const response = await fetch("/api/vendors/requests");
       if (!response.ok) throw new Error("Failed to load requests");
 
       const data = await response.json();

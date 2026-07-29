@@ -1,23 +1,24 @@
 import sql from "@/app/api/utils/sql";
-import { getServerSession } from "@/lib/auth";
+import {
+  CatalogInputError,
+  parseProductUpdateInput,
+  readCatalogRequest,
+} from "@/domains/catalog/input";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function PUT(request, { params }) {
   try {
-    let userId;
-    const headerUserId = request.headers.get("x-user-id");
-    if (headerUserId) {
-      userId = headerUserId;
-    } else {
-      const session = await getServerSession(request);
-      if (!session?.data?.user?.id) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
-      }
-      userId = session.data.user.id;
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
     const { id } = params;
-    const body = await request.json();
-    const { vendorId, name, price, unit, isAvailable } = body;
+    const { vendorId, fields } = await readCatalogRequest(
+      request,
+      parseProductUpdateInput,
+    );
 
     // Verify vendor ownership
     const vendorCheck = await sql`
@@ -35,25 +36,21 @@ export async function PUT(request, { params }) {
     const values = [];
     let paramIndex = 1;
 
-    if (name !== undefined) {
+    if (fields.name !== undefined) {
       updates.push(`name = $${paramIndex++}`);
-      values.push(name);
+      values.push(fields.name);
     }
-    if (price !== undefined) {
+    if (fields.price !== undefined) {
       updates.push(`price = $${paramIndex++}`);
-      values.push(price);
+      values.push(fields.price);
     }
-    if (unit !== undefined) {
+    if (fields.unit !== undefined) {
       updates.push(`unit = $${paramIndex++}`);
-      values.push(unit);
+      values.push(fields.unit);
     }
-    if (isAvailable !== undefined) {
+    if (fields.isAvailable !== undefined) {
       updates.push(`is_available = $${paramIndex++}`);
-      values.push(isAvailable);
-    }
-
-    if (updates.length === 0) {
-      return Response.json({ error: "No fields to update" }, { status: 400 });
+      values.push(fields.isAvailable);
     }
 
     values.push(id);
@@ -74,6 +71,9 @@ export async function PUT(request, { params }) {
 
     return Response.json({ product: result[0], success: true });
   } catch (err) {
+    if (err instanceof CatalogInputError) {
+      return Response.json({ error: err.message }, { status: err.status });
+    }
     console.error("PUT /api/vendors/products/[id] error:", err);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
@@ -81,17 +81,11 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    let userId;
-    const headerUserId = request.headers.get("x-user-id");
-    if (headerUserId) {
-      userId = headerUserId;
-    } else {
-      const session = await getServerSession(request);
-      if (!session?.data?.user?.id) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
-      }
-      userId = session.data.user.id;
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = user.id;
 
     const { id } = params;
 

@@ -1,83 +1,88 @@
 import sql from "@/app/api/utils/sql";
-import { getServerSession } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/auth";
+import {
+  CartInputError,
+  normalizeConfirmedQuantity,
+  parseAvailabilityResponseInput,
+} from "@/domains/cart/input";
+import { promoteNextAvailabilityGroup } from "@/domains/cart/queue";
 
 export async function POST(request) {
   try {
-    let userId;
-    const headerUserId = request.headers.get("x-user-id");
-    if (headerUserId) {
-      userId = headerUserId;
-    } else {
-      const session = await getServerSession(request);
-      if (!session?.data?.user?.id) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
-      }
-      userId = session.data.user.id;
-    }
-    const body = await request.json();
-    const { requestId, status, quantityConfirmed } = body;
-
-    if (!requestId || !status) {
-      return Response.json(
-        { error: "requestId and status are required" },
-        { status: 400 },
-      );
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!["confirmed", "denied"].includes(status)) {
-      return Response.json(
-        { error: "status must be 'confirmed' or 'denied'" },
-        { status: 400 },
-      );
-    }
+    const { requestId, status, quantityConfirmed } =
+      parseAvailabilityResponseInput(await request.json());
 
-    // Verify vendor owns this request
-    const verifyQuery = `
-      SELECT ar.id, ar.status, ar.expires_at, ar.vendor_id
+    const requests = await sql`
+      SELECT
+        ar.id, ar.status, ar.expires_at, ar.vendor_id,
+        ar.cart_id, ar.quantity_requested
       FROM availability_requests ar
       JOIN vendors v ON v.id = ar.vendor_id
-      WHERE ar.id = $1 AND v.user_id = $2
+      WHERE ar.id = ${requestId} AND v.user_id = ${user.id}
     `;
-    const verify = await sql(verifyQuery, [requestId, userId]);
-    
-    if (verify.length === 0) {
+    if (requests.length === 0) {
       return Response.json({ error: "Request not found or unauthorized" }, { status: 404 });
     }
 
-    if (verify[0].status !== 'pending') {
-      return Response.json({ error: "Cette demande a déjà été traitée" }, { status: 400 });
+    const availabilityRequest = requests[0];
+    if (availabilityRequest.cart_id) {
+      return Response.json(
+        { error: "Cart items must be answered through the cart response endpoint" },
+        { status: 409 },
+      );
+    }
+    if (availabilityRequest.status !== "pending") {
+      return Response.json({ error: "Cette demande a déjà été traitée" }, { status: 409 });
     }
 
-    if (verify[0].expires_at && new Date(verify[0].expires_at) < new Date()) {
-      await sql("UPDATE availability_requests SET status = 'denied' WHERE id = $1", [requestId]);
-      return Response.json({ error: "Cette demande a expiré" }, { status: 400 });
+    if (
+      availabilityRequest.expires_at
+      && new Date(availabilityRequest.expires_at) <= new Date()
+    ) {
+      await sql`
+        UPDATE availability_requests
+        SET status = 'denied', quantity_confirmed = NULL,
+            responded_at = CURRENT_TIMESTAMP
+        WHERE id = ${requestId} AND status = 'pending'
+      `;
+      await promoteNextAvailabilityGroup(availabilityRequest.vendor_id);
+      return Response.json({ error: "Cette demande a expiré" }, { status: 410 });
     }
 
-    const query = `
+    const confirmedQuantity = normalizeConfirmedQuantity(
+      status,
+      quantityConfirmed,
+      availabilityRequest.quantity_requested,
+    );
+
+    const result = await sql`
       UPDATE availability_requests
-      SET status = $1, quantity_confirmed = $2, responded_at = CURRENT_TIMESTAMP
-      WHERE id = $3
+      SET status = ${status},
+          quantity_confirmed = ${confirmedQuantity},
+          responded_at = CURRENT_TIMESTAMP
+      WHERE id = ${requestId}
+        AND status = 'pending'
+        AND expires_at > CURRENT_TIMESTAMP
       RETURNING *
     `;
+    if (result.length === 0) {
+      return Response.json(
+        { error: "Request was already processed or expired" },
+        { status: 409 },
+      );
+    }
 
-    const result = await sql(query, [status, quantityConfirmed, requestId]);
-
-    // Promote next queued request for this vendor (if any)
-    await sql`
-      UPDATE availability_requests
-      SET status = 'pending'
-      WHERE id = (
-        SELECT id FROM availability_requests
-        WHERE vendor_id = ${verify[0].vendor_id}
-          AND status = 'queued'
-          AND expires_at > CURRENT_TIMESTAMP
-        ORDER BY created_at ASC
-        LIMIT 1
-      )
-    `;
-
+    await promoteNextAvailabilityGroup(availabilityRequest.vendor_id);
     return Response.json({ request: result[0] });
   } catch (error) {
+    if (error instanceof CartInputError) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error responding to availability request:", error);
     return Response.json(
       { error: "Failed to respond to request" },

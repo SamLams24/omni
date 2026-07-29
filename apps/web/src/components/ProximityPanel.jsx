@@ -1,15 +1,24 @@
 import { useState, useEffect } from "react";
 import { MapPin, Loader2 } from "lucide-react";
 
-export default function ProximityPanel({ userId, maxItems = 5 }) {
+export default function ProximityPanel({ lat, lon, maxItems = 5 }) {
   const [entities, setEntities] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      setEntities([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     (async () => {
       try {
-        const res = await fetch(`/api/proximity/nearby?userId=${userId}`);
+        const query = new URLSearchParams({
+          lat: String(lat),
+          lon: String(lon),
+        });
+        const res = await fetch(`/api/proximity/nearby?${query}`);
         if (res.ok) {
           const data = await res.json();
           setEntities(data.entities || []);
@@ -18,7 +27,7 @@ export default function ProximityPanel({ userId, maxItems = 5 }) {
         setLoading(false);
       }
     })();
-  }, [userId]);
+  }, [lat, lon]);
 
   if (loading) {
     return (

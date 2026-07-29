@@ -39,10 +39,9 @@ export default function DeliveryOnboarding() {
     if (!fullName.trim() || !phone.trim() || !vehicleType) return;
     setSending(true);
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const res = await fetch("/api/delivery/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fullName, phone, idType, idNumber, vehicleType }),
       });
       if (!res.ok) throw new Error("Registration failed");
@@ -50,7 +49,7 @@ export default function DeliveryOnboarding() {
       // Save rayon/deviation preferences
       await fetch("/api/delivery/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ activeMode: "radius", activeRadiusKm, deviationKm }),
       });
 
