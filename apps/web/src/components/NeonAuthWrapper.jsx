@@ -15,7 +15,7 @@ export function NeonAuthWrapper({ redirectUrl = "/map" }) {
   const [name, setName] = useState("");
 
   const checkVendorAndRedirect = async (user) => {
-    localStorage.setItem("omni_user", JSON.stringify(user));
+    // Session is managed by Neon Auth cookies - no localStorage needed
 
     if (!localStorage.getItem("onboarding_done")) {
       navigate("/onboarding");
