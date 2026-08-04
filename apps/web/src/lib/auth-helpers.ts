@@ -4,30 +4,33 @@ interface User {
   name?: string;
 }
 
-const STORAGE_KEY = 'omni_user';
+let cachedUser: User | null = null;
+let cacheTime = 0;
+const CACHE_TTL = 30_000;
 
-export function getCurrentUser(): User | null {
+export async function getCurrentUser(): Promise<User | null> {
+  const now = Date.now();
+  if (cachedUser && now - cacheTime < CACHE_TTL) return cachedUser;
+
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return null;
-    
-    const user = JSON.parse(stored);
-    if (!user || typeof user.id !== 'string') return null;
-    
+    const res = await fetch("/api/auth/session", { cache: "no-store" });
+    const data = await res.json();
+    const user = data?.user || null;
+    cachedUser = user;
+    cacheTime = now;
     return user;
   } catch {
+    cachedUser = null;
     return null;
   }
 }
 
-export function isAuthenticated(): boolean {
-  return getCurrentUser() !== null;
+export function invalidateUserCache(): void {
+  cachedUser = null;
+  cacheTime = 0;
 }
 
-export function clearAuth(): void {
-  localStorage.removeItem(STORAGE_KEY);
-}
-
-export function setUser(user: User): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+export async function isAuthenticated(): Promise<boolean> {
+  const user = await getCurrentUser();
+  return user !== null;
 }

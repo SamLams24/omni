@@ -20,6 +20,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 export default function MapPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
+  const [userName, setUserName] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [sortBy, setSortBy] = useState("distance");
@@ -151,6 +152,7 @@ export default function MapPage() {
         if (data?.user) {
           // Session is managed by Neon Auth cookies - no localStorage needed
           setIsAuthenticated(true);
+          setUserName(data.user.name || null);
         }
       } catch (error) {
         console.error("Auth check failed:", error);
@@ -1142,7 +1144,7 @@ export default function MapPage() {
       <div className={`absolute ${isMobile ? "top-4 right-4" : "top-4 right-4"} z-20 flex items-center gap-2`}>
         <MobileNav
           isAuthenticated={isAuthenticated}
-          userName={(() => { try { const u = JSON.parse(localStorage.getItem("omni_user") || "{}"); return u.name; } catch { return null; }})()}
+          userName={userName}
           balance={walletBalance}
         />
         <div className="hidden sm:flex items-center gap-2">

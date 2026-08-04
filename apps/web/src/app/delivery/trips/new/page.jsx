@@ -304,7 +304,9 @@ export default function NewTrip() {
     setSending(true);
     try {
       try {
-        if (!JSON.parse(localStorage.getItem("omni_user")).id) throw new Error();
+        const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+        const authData = await authRes.json();
+        if (!authData?.user) { toast("Session expirée"); navigate("/auth"); return; }
       } catch {
         toast("Session expirée");
         navigate("/auth");

@@ -17,8 +17,9 @@ export default function MobileNav({ isAuthenticated, userName, balance }) {
     setOpen(false);
     if (role === "vendor") {
       try {
-        const stored = localStorage.getItem("omni_user");
-        if (!stored) { navigate("/auth"); return; }
+        const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+        const authData = await authRes.json();
+        if (!authData?.user) { navigate("/auth"); return; }
         const res = await fetch("/api/vendors/my-vendor");
         if (!res.ok) { navigate("/vendor/onboarding"); return; }
         const data = await res.json();
@@ -27,8 +28,9 @@ export default function MobileNav({ isAuthenticated, userName, balance }) {
       } catch { navigate("/vendor/onboarding"); }
     } else if (role === "delivery") {
       try {
-        const stored = localStorage.getItem("omni_user");
-        if (!stored) { navigate("/auth"); return; }
+        const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+        const authData = await authRes.json();
+        if (!authData?.user) { navigate("/auth"); return; }
         const res = await fetch("/api/delivery/profile");
         if (res.ok) {
           const data = await res.json();

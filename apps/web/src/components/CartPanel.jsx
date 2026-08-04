@@ -81,14 +81,12 @@ export default function CartPanel({ isOpen, onClose, onItemCountChange }) {
   const facilityGroups = facilityIds.map((id) => groups[id]);
 
   const sendCart = async (facilityId) => {
-    const userId = (() => {
-      try {
-        const u = localStorage.getItem("omni_user");
-        return u ? JSON.parse(u).id : null;
-      } catch {
-        return null;
-      }
-    })();
+    let userId = null;
+    try {
+      const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+      const authData = await authRes.json();
+      userId = authData?.user?.id || null;
+    } catch {}
 
     if (!userId) {
       window.location.href = "/auth";

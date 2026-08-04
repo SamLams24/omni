@@ -520,14 +520,13 @@ function RouteGuard({ children }: { children: ReactNode }) {
   const isPublic = publicRoutes.some((route) => pathname === route || pathname.startsWith("/auth") || pathname.startsWith("/onboarding"));
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("omni_user");
-      if (stored) {
-        const user = JSON.parse(stored);
-        if (user.id) { setAuthed(true); setChecking(false); return; }
-      }
-    } catch {}
-    setChecking(false);
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => {
+        if (data?.user?.id) setAuthed(true);
+        setChecking(false);
+      })
+      .catch(() => setChecking(false));
   }, []);
 
   if (isPublic) return <>{children}</>;

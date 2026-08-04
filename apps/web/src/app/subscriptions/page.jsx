@@ -14,9 +14,13 @@ export default function SubscriptionsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const user = localStorage.getItem("omni_user");
-    if (!user) { navigate("/auth"); return; }
-    loadData();
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => {
+        if (!data?.user) { navigate("/auth"); return; }
+        loadData();
+      })
+      .catch(() => navigate("/auth"));
   }, []);
 
   const loadData = async () => {

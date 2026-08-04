@@ -49,14 +49,9 @@ export default function CartHistory() {
   const fetchCarts = async (isInitial = false) => {
     if (isInitial) setLoading(true);
     try {
-      const userId = (() => {
-        try {
-          const u = localStorage.getItem("omni_user");
-          return u ? JSON.parse(u).id : null;
-        } catch { return null; }
-      })();
-
-      if (!userId) {
+      const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+      const authData = await authRes.json();
+      if (!authData?.user) {
         window.location.href = "/auth";
         return;
       }
@@ -163,12 +158,12 @@ export default function CartHistory() {
                         <span>{cart.payment_method === "escrow" ? "Balance" : "Cash"}</span>
                       </div>
                       <button
-                        onClick={() => {
-                          const userId = (() => {
-                            try { const u = localStorage.getItem("omni_user"); return u ? JSON.parse(u).id : null; } catch { return null; }
-                          })();
-                          if (!userId) { window.location.href = "/auth"; return; }
-                          fetch("/api/availability/request", {
+                        onClick={async () => {
+                          try {
+                            const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+                            const authData = await authRes.json();
+                            if (!authData?.user) { window.location.href = "/auth"; return; }
+                            fetch("/api/availability/request", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ vendorId: cart.vendor_id, facilityId: cart.facility_id, productId: cart.items[0]?.product_id, quantity: 1 }),
@@ -199,8 +194,9 @@ export default function CartHistory() {
                       <button
                         onClick={async () => {
                           try {
-                            const userId = (() => { try { const u = localStorage.getItem("omni_user"); return u ? JSON.parse(u).id : null; } catch { return null; } })();
-                            if (!userId) return;
+                            const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+                            const authData = await authRes.json();
+                            if (!authData?.user) { window.location.href = "/auth"; return; }
                             const res = await fetch(`/api/cart/${cart.id}/received`, {
                               method: "POST",
                             });
@@ -215,8 +211,9 @@ export default function CartHistory() {
                       <button
                         onClick={async () => {
                           try {
-                            const userId = (() => { try { const u = localStorage.getItem("omni_user"); return u ? JSON.parse(u).id : null; } catch { return null; } })();
-                            if (!userId) return;
+                            const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+                            const authData = await authRes.json();
+                            if (!authData?.user) { window.location.href = "/auth"; return; }
                             const res = await fetch(`/api/cart/${cart.id}/cancel`, {
                               method: "POST",
                             });
@@ -234,8 +231,9 @@ export default function CartHistory() {
                     <button
                       onClick={async () => {
                         try {
-                          const userId = (() => { try { const u = localStorage.getItem("omni_user"); return u ? JSON.parse(u).id : null; } catch { return null; } })();
-                          if (!userId) return;
+                          const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+                          const authData = await authRes.json();
+                          if (!authData?.user) { window.location.href = "/auth"; return; }
                           const res = await fetch(`/api/cart/${cart.id}/cancel`, {
                             method: "POST",
                           });
