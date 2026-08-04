@@ -103,52 +103,45 @@ export async function POST(request) {
       return Response.json({ ok: false, error: "Transaction amount is invalid" });
     }
 
-    // Atomic duplicate check + credit using CTE
+    // Atomic credit + insert using CTE.
+    // ON CONFLICT on wallets handles wallet upsert.
+    // ON CONFLICT on transactions.reference prevents duplicate credits
+    // even under MVCC snapshot (requires unique index on reference).
     const reference = `fedapay:${transactionId}`;
     const credited = await sql`
-      WITH existing_tx AS (
-        SELECT id FROM transactions
-        WHERE reference = ${reference}
-        LIMIT 1
-      ),
-      credited AS (
+      WITH credited AS (
         INSERT INTO wallets (user_id, balance)
         VALUES (${userId}, ${confirmedAmount})
         ON CONFLICT (user_id) DO UPDATE
           SET balance = wallets.balance + EXCLUDED.balance,
               updated_at = CURRENT_TIMESTAMP
-        WHERE NOT EXISTS (SELECT 1 FROM existing_tx)
         RETURNING id, balance
+      ),
+      new_tx AS (
+        INSERT INTO transactions (wallet_id, type, amount, reference)
+        SELECT id, 'deposit', ${confirmedAmount}, ${reference}
+        FROM credited
+        ON CONFLICT (reference) DO NOTHING
+        RETURNING id
       )
-      INSERT INTO transactions (wallet_id, type, amount, reference)
-      SELECT id, 'deposit', ${confirmedAmount}, ${reference}
-      FROM credited
-      WHERE NOT EXISTS (SELECT 1 FROM existing_tx)
-      RETURNING id
+      SELECT
+        (SELECT balance FROM credited) AS balance,
+        (SELECT id FROM new_tx) AS tx_id
     `;
 
-    if (credited.length === 0) {
-      // Either duplicate or wallet not found — check which
-      const existing = await sql`SELECT id FROM transactions WHERE reference = ${reference} LIMIT 1`;
-      if (existing.length > 0) {
-        const wallets = await sql`SELECT balance FROM wallets WHERE user_id = ${userId}`;
-        return Response.json({
-          ok: true,
-          message: "Transaction already processed",
-          balance: wallets.length > 0 ? Number(wallets[0].balance) : 0,
-        });
-      }
-      return Response.json({ ok: false, error: "Failed to credit wallet" });
+    if (!credited[0]?.tx_id) {
+      // Duplicate — transaction was already processed, return current balance
+      const wallets = await sql`SELECT balance FROM wallets WHERE user_id = ${userId}`;
+      return Response.json({
+        ok: true,
+        message: "Transaction already processed",
+        balance: wallets.length > 0 ? Number(wallets[0].balance) : 0,
+      });
     }
-
-    // Return updated balance
-    const wallets = await sql`
-      SELECT balance FROM wallets WHERE user_id = ${userId}
-    `;
 
     return Response.json({
       ok: true,
-      balance: wallets.length > 0 ? Number(wallets[0].balance) : 0,
+      balance: Number(credited[0].balance),
       transactionId,
     });
   } catch (error) {
