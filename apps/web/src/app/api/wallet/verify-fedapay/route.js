@@ -6,6 +6,14 @@ const rateLimits = new Map();
 
 function checkRateLimit(key, limit = 10, windowMs = 60000) {
   const now = Date.now();
+
+  // Periodic cleanup: every 100 requests, prune expired entries
+  if (rateLimits.size > 100 && Math.random() < 0.01) {
+    for (const [k, v] of rateLimits) {
+      if (now > v.resetAt) rateLimits.delete(k);
+    }
+  }
+
   const record = rateLimits.get(key) || { count: 0, resetAt: now + windowMs };
 
   if (now > record.resetAt) {
@@ -46,12 +54,7 @@ export async function POST(request) {
         { status: 400 },
       );
     }
-    if (typeof amount !== "number" || amount <= 0) {
-      return Response.json(
-        { error: "amount must be a positive number" },
-        { status: 400 },
-      );
-    }
+    // amount is optional — we use the API-confirmed amount for crediting
 
     // Verify with FedaPay API
     const apiKey = process.env.FEDAPAY_SECRET_KEY;
@@ -100,39 +103,43 @@ export async function POST(request) {
       return Response.json({ ok: false, error: "Transaction amount is invalid" });
     }
 
-    // Duplicate prevention — check if this transaction was already processed
+    // Atomic duplicate check + credit using CTE
     const reference = `fedapay:${transactionId}`;
-    const existing = await sql`
-      SELECT id FROM transactions
-      WHERE reference = ${reference}
-      LIMIT 1
-    `;
-    if (existing.length > 0) {
-      // Already processed — return current balance
-      const wallets = await sql`
-        SELECT balance FROM wallets WHERE user_id = ${userId}
-      `;
-      return Response.json({
-        ok: true,
-        message: "Transaction already processed",
-        balance: wallets.length > 0 ? Number(wallets[0].balance) : 0,
-      });
-    }
-
-    // Credit the wallet
-    await sql`
-      WITH credited AS (
+    const credited = await sql`
+      WITH existing_tx AS (
+        SELECT id FROM transactions
+        WHERE reference = ${reference}
+        LIMIT 1
+      ),
+      credited AS (
         INSERT INTO wallets (user_id, balance)
         VALUES (${userId}, ${confirmedAmount})
         ON CONFLICT (user_id) DO UPDATE
           SET balance = wallets.balance + EXCLUDED.balance,
               updated_at = CURRENT_TIMESTAMP
-        RETURNING id
+        WHERE NOT EXISTS (SELECT 1 FROM existing_tx)
+        RETURNING id, balance
       )
       INSERT INTO transactions (wallet_id, type, amount, reference)
       SELECT id, 'deposit', ${confirmedAmount}, ${reference}
       FROM credited
+      WHERE NOT EXISTS (SELECT 1 FROM existing_tx)
+      RETURNING id
     `;
+
+    if (credited.length === 0) {
+      // Either duplicate or wallet not found — check which
+      const existing = await sql`SELECT id FROM transactions WHERE reference = ${reference} LIMIT 1`;
+      if (existing.length > 0) {
+        const wallets = await sql`SELECT balance FROM wallets WHERE user_id = ${userId}`;
+        return Response.json({
+          ok: true,
+          message: "Transaction already processed",
+          balance: wallets.length > 0 ? Number(wallets[0].balance) : 0,
+        });
+      }
+      return Response.json({ ok: false, error: "Failed to credit wallet" });
+    }
 
     // Return updated balance
     const wallets = await sql`
