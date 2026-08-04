@@ -9,14 +9,12 @@ const useUser = () => {
     try {
       const session = await getSession();
       if (session.user) {
-        localStorage.setItem("omni_user", JSON.stringify(session.user));
+        // Session is managed by Neon Auth cookies - no localStorage needed
         setUser(session.user);
       } else {
-        localStorage.removeItem("omni_user");
         setUser(null);
       }
     } catch {
-      localStorage.removeItem("omni_user");
       setUser(null);
     } finally {
       setLoading(false);
