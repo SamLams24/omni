@@ -1144,6 +1144,7 @@ export default function MapPage() {
       <div className={`absolute ${isMobile ? "top-4 right-4" : "top-4 right-4"} z-20 flex items-center gap-2`}>
         <MobileNav
           isAuthenticated={isAuthenticated}
+          authChecking={authChecking}
           userName={userName}
           balance={walletBalance}
         />

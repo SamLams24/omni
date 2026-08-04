@@ -4,6 +4,13 @@ import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request) {
   try {
+    if (process.env.NODE_ENV === "production") {
+      return Response.json(
+        { error: "Cette fonctionnalité est temporairement indisponible.", code: "FEATURE_DISABLED" },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     const disabled = requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS");
     if (disabled) return disabled;
 

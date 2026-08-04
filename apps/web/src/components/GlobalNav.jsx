@@ -9,6 +9,7 @@ export default function GlobalNav() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userName, setUserName] = useState(null);
   const [balance, setBalance] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -21,7 +22,8 @@ export default function GlobalNav() {
           setUserName(data.user.name);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setAuthLoading(false));
   }, []);
 
   useEffect(() => {
@@ -99,7 +101,15 @@ export default function GlobalNav() {
                 </button>
               </div>
 
-              {isAuthenticated ? (
+              {authLoading ? (
+                <div className="flex items-center gap-3 mb-6 pb-6 border-b border-white/5">
+                  <div className="w-9 h-9 rounded-full bg-white/5 animate-pulse" />
+                  <div className="space-y-1.5">
+                    <div className="h-3 w-20 bg-white/5 rounded animate-pulse" />
+                    <div className="h-2 w-12 bg-white/5 rounded animate-pulse" />
+                  </div>
+                </div>
+              ) : isAuthenticated ? (
                 <div className="flex items-center gap-3 mb-6 pb-6 border-b border-white/5">
                   <div className="w-9 h-9 rounded-full bg-emerald-500/20 flex items-center justify-center">
                     <span className="text-emerald-400 text-sm font-medium">{userName?.[0]?.toUpperCase() || "U"}</span>

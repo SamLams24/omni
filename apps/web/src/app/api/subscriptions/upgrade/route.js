@@ -1,12 +1,8 @@
 import sql from "@/app/api/utils/sql";
-import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
 import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request) {
   try {
-    const disabled = requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS");
-    if (disabled) return disabled;
-
     const user = await getAuthenticatedUser(request);
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
     const userId = user.id;
