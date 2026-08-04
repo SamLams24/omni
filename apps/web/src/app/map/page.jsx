@@ -149,7 +149,7 @@ export default function MapPage() {
         const response = await fetch("/api/auth/session");
         const data = await response.json();
         if (data?.user) {
-          localStorage.setItem("omni_user", JSON.stringify(data.user));
+          // Session is managed by Neon Auth cookies - no localStorage needed
           setIsAuthenticated(true);
         }
       } catch (error) {
