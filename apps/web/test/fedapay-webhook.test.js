@@ -108,7 +108,7 @@ describe("FedaPay webhook signature verification", () => {
       signature(rawBody),
       secret,
       { nowSeconds },
-    )).toThrow("Invalid webhook JSON");
+    )).toThrow("Invalid webhook signature or payload");
   });
 
   it("supports current and legacy FedaPay event field names", () => {
