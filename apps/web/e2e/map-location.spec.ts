@@ -2,6 +2,27 @@ import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ context, page }) => {
 	await context.clearPermissions();
+	await page.addInitScript(() => {
+		Object.defineProperty(navigator, "geolocation", {
+			configurable: true,
+			value: {
+				getCurrentPosition: (
+					_success: PositionCallback,
+					error?: PositionErrorCallback,
+				) => {
+					error?.({
+						code: 1,
+						message: "Geolocation permission denied by the E2E test",
+						PERMISSION_DENIED: 1,
+						POSITION_UNAVAILABLE: 2,
+						TIMEOUT: 3,
+					});
+				},
+				watchPosition: () => 1,
+				clearWatch: () => undefined,
+			},
+		});
+	});
 	await page.route("**/api/auth/session", async (route) => {
 		await route.fulfill({
 			status: 200,

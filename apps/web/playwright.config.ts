@@ -26,8 +26,7 @@ export default defineConfig({
 		},
 	],
 	webServer: {
-		command:
-			"pnpm build && HOST=127.0.0.1 PORT=4173 pnpm exec react-router-serve build/server/*/index.js",
+		command: "pnpm build && pnpm serve:e2e",
 		url: baseURL,
 		reuseExistingServer: !process.env.CI,
 		timeout: 120_000,
