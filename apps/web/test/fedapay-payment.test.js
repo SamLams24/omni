@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { FedaPay, Transaction } from "fedapay";
 
 vi.mock("@/app/api/utils/sql", () => ({
   default: vi.fn(),
@@ -15,7 +18,7 @@ import {
   FedaPayApiError,
   getFedaPayConfig,
   isValidFedaPayTransactionId,
-  requestFedaPay,
+  retrieveFedaPayTransaction,
 } from "@/lib/fedapay";
 
 const userId = "17ce39d2-d9f6-4ae5-80d6-a12889e6a40b";
@@ -47,11 +50,25 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
-  vi.unstubAllGlobals();
 });
 
 describe("FedaPay server client", () => {
+  it("pins the official SDK to the current Axios security override", () => {
+    const packageJson = JSON.parse(
+      readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
+    );
+    const workspace = readFileSync(
+      resolve(process.cwd(), "pnpm-workspace.yaml"),
+      "utf8",
+    );
+
+    expect(packageJson.dependencies.fedapay).toBe("1.2.5");
+    expect(packageJson.dependencies.axios).toBe("1.19.0");
+    expect(workspace).toContain('"fedapay>axios": "1.19.0"');
+  });
+
   it("uses only the documented fixed API environments", () => {
     expect(getFedaPayConfig()).toMatchObject({
       baseUrl: "https://sandbox-api.fedapay.com/v1",
@@ -73,18 +90,19 @@ describe("FedaPay server client", () => {
     expect(isValidFedaPayTransactionId(42001)).toBe(false);
   });
 
-  it("never exposes provider response bodies when an API call fails", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response("secret provider details", { status: 401 }),
-      ),
+  it("configures the official SDK without exposing provider errors", async () => {
+    const setApiKey = vi.spyOn(FedaPay, "setApiKey");
+    const setEnvironment = vi.spyOn(FedaPay, "setEnvironment");
+    vi.spyOn(Transaction, "retrieve").mockRejectedValue(
+      new Error("secret provider details"),
     );
 
-    await expect(requestFedaPay("/transactions/42001")).rejects.toMatchObject({
-      message: "FedaPay request failed with status 401",
+    await expect(retrieveFedaPayTransaction("42001")).rejects.toMatchObject({
+      message: "FedaPay request could not be completed",
       status: 502,
     });
+    expect(setApiKey).toHaveBeenCalledWith("sk_test_example");
+    expect(setEnvironment).toHaveBeenCalledWith("sandbox");
   });
 });
 
@@ -116,10 +134,11 @@ describe("FedaPay deposit intent", () => {
     sql
       .mockResolvedValueOnce([{ id: intentId }])
       .mockResolvedValueOnce([{ id: intentId }]);
-    const fetchMock = vi.fn().mockResolvedValue(
-      Response.json({ id: 42001, amount: 5000, status: "pending" }, { status: 201 }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
+    const createTransaction = vi.spyOn(Transaction, "create").mockResolvedValue({
+      id: 42001,
+      amount: 5000,
+      status: "pending",
+    });
 
     const response = await createDepositIntent(
       postRequest("/api/wallet/deposit-intent", { amount: 5000 }),
@@ -133,29 +152,24 @@ describe("FedaPay deposit intent", () => {
       amount: 5000,
       currency: "XOF",
     });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://sandbox-api.fedapay.com/v1/transactions",
-      expect.objectContaining({ method: "POST" }),
-    );
-    const providerBody = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(providerBody).toMatchObject({
+    expect(createTransaction).toHaveBeenCalledWith({
       amount: 5000,
       currency: { iso: "XOF" },
+      description: "Recharge portefeuille Omni - 5000 FCFA",
       custom_metadata: { omni_deposit_intent_id: intentId },
     });
   });
 
   it("rate-limits provider transaction creation through the database", async () => {
     sql.mockResolvedValueOnce([]);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    const createTransaction = vi.spyOn(Transaction, "create");
 
     const response = await createDepositIntent(
       postRequest("/api/wallet/deposit-intent", { amount: 5000 }),
     );
 
     expect(response.status).toBe(429);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(createTransaction).not.toHaveBeenCalled();
     expect(sql.mock.calls[0][0].join(" ")).toContain("INTERVAL '1 minute'");
   });
 });
@@ -163,15 +177,14 @@ describe("FedaPay deposit intent", () => {
 describe("FedaPay deposit settlement", () => {
   it("does not query FedaPay for a transaction unbound to the user", async () => {
     sql.mockResolvedValueOnce([]);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    const retrieveTransaction = vi.spyOn(Transaction, "retrieve");
 
     const response = await verifyDeposit(
       postRequest("/api/wallet/verify-fedapay", { transactionId: "42001" }),
     );
 
     expect(response.status).toBe(404);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(retrieveTransaction).not.toHaveBeenCalled();
     expect(sql).toHaveBeenCalledTimes(1);
   });
 
@@ -184,9 +197,8 @@ describe("FedaPay deposit settlement", () => {
         currency: "XOF",
         status: "pending",
       }]);
-      vi.stubGlobal(
-        "fetch",
-        vi.fn().mockResolvedValue(Response.json(approvedTransaction({ status }))),
+      vi.spyOn(Transaction, "retrieve").mockResolvedValue(
+        approvedTransaction({ status }),
       );
 
       const response = await verifyDeposit(
@@ -205,13 +217,10 @@ describe("FedaPay deposit settlement", () => {
       currency: "XOF",
       status: "pending",
     }]);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        Response.json(approvedTransaction({
-          custom_metadata: { omni_deposit_intent_id: "another-intent" },
-        })),
-      ),
+    vi.spyOn(Transaction, "retrieve").mockResolvedValue(
+      approvedTransaction({
+        custom_metadata: { omni_deposit_intent_id: "another-intent" },
+      }),
     );
 
     const response = await verifyDeposit(
@@ -236,10 +245,7 @@ describe("FedaPay deposit settlement", () => {
         claimed: true,
         recorded: true,
       }]);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(Response.json(approvedTransaction())),
-    );
+    vi.spyOn(Transaction, "retrieve").mockResolvedValue(approvedTransaction());
 
     const response = await verifyDeposit(
       postRequest("/api/wallet/verify-fedapay", { transactionId: "42001" }),
@@ -270,8 +276,7 @@ describe("FedaPay deposit settlement", () => {
         status: "settled",
       }])
       .mockResolvedValueOnce([{ balance: "7500.00" }]);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    const retrieveTransaction = vi.spyOn(Transaction, "retrieve");
 
     const response = await verifyDeposit(
       postRequest("/api/wallet/verify-fedapay", { transactionId: "42001" }),
@@ -283,6 +288,6 @@ describe("FedaPay deposit settlement", () => {
       message: "Transaction already processed",
       balance: 7500,
     });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(retrieveTransaction).not.toHaveBeenCalled();
   });
 });

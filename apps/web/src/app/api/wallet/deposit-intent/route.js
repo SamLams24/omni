@@ -1,9 +1,9 @@
 import sql from "@/app/api/utils/sql";
 import { getAuthenticatedUser } from "@/lib/auth";
 import {
+  createFedaPayTransaction,
   FedaPayApiError,
   isValidFedaPayTransactionId,
-  requestFedaPay,
 } from "@/lib/fedapay";
 
 const DEFAULT_MIN_DEPOSIT = 100;
@@ -76,15 +76,12 @@ export async function POST(request) {
   }
 
   try {
-    const transaction = await requestFedaPay("/transactions", {
-      method: "POST",
-      body: {
-        amount,
-        currency: { iso: "XOF" },
-        description: `Recharge portefeuille Omni - ${amount} FCFA`,
-        custom_metadata: {
-          omni_deposit_intent_id: intentId,
-        },
+    const transaction = await createFedaPayTransaction({
+      amount,
+      currency: { iso: "XOF" },
+      description: `Recharge portefeuille Omni - ${amount} FCFA`,
+      custom_metadata: {
+        omni_deposit_intent_id: intentId,
       },
     });
     const providerTransactionId = String(transaction?.id || "");

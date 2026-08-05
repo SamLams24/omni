@@ -1,7 +1,12 @@
+import axios from "axios";
+import { FedaPay, Requestor, Transaction } from "fedapay";
+
 const FEDAPAY_API_BASE_URLS = {
   live: "https://api.fedapay.com/v1",
   sandbox: "https://sandbox-api.fedapay.com/v1",
 };
+
+Requestor.setHttpClient(axios.create({ timeout: 8000 }));
 
 export class FedaPayApiError extends Error {
   constructor(message, status = 502) {
@@ -33,34 +38,27 @@ export function isValidFedaPayTransactionId(value) {
   return typeof value === "string" && /^[1-9]\d{0,29}$/.test(value);
 }
 
-export async function requestFedaPay(path, { method = "GET", body } = {}) {
-  const { apiKey, baseUrl } = getFedaPayConfig();
-  let response;
+function configureFedaPay() {
+  const config = getFedaPayConfig();
+  FedaPay.setApiKey(config.apiKey);
+  FedaPay.setEnvironment(config.environment);
+  return config;
+}
+
+async function runFedaPayRequest(request) {
   try {
-    response = await fetch(`${baseUrl}${path}`, {
-      method,
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${apiKey}`,
-        ...(body ? { "Content-Type": "application/json" } : {}),
-      },
-      ...(body ? { body: JSON.stringify(body) } : {}),
-      cache: "no-store",
-      signal: AbortSignal.timeout(8000),
-    });
-  } catch {
+    configureFedaPay();
+    return await request();
+  } catch (error) {
+    if (error instanceof FedaPayApiError) throw error;
     throw new FedaPayApiError("FedaPay request could not be completed");
   }
+}
 
-  if (!response.ok) {
-    throw new FedaPayApiError(
-      `FedaPay request failed with status ${response.status}`,
-    );
-  }
+export function createFedaPayTransaction(params) {
+  return runFedaPayRequest(() => Transaction.create(params));
+}
 
-  try {
-    return await response.json();
-  } catch {
-    throw new FedaPayApiError("FedaPay returned an invalid response");
-  }
+export function retrieveFedaPayTransaction(transactionId) {
+  return runFedaPayRequest(() => Transaction.retrieve(transactionId));
 }

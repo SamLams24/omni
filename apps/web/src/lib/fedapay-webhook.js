@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { Webhook } from "fedapay";
 import { isValidFedaPayTransactionId } from "@/lib/fedapay";
 
 const SIGNATURE_SCHEME = "s";
@@ -37,13 +37,6 @@ function parseSignatureHeader(header) {
   return { timestamp: timestamps[0], signatures };
 }
 
-function constantTimeHexEqual(left, right) {
-  const leftBuffer = Buffer.from(left, "hex");
-  const rightBuffer = Buffer.from(right, "hex");
-  return leftBuffer.length === rightBuffer.length
-    && timingSafeEqual(leftBuffer, rightBuffer);
-}
-
 export function constructFedaPayWebhookEvent(
   rawBody,
   signatureHeader,
@@ -57,22 +50,20 @@ export function constructFedaPayWebhookEvent(
     throw new FedaPayWebhookError("Invalid webhook verification input");
   }
 
-  const { timestamp, signatures } = parseSignatureHeader(signatureHeader);
+  const { timestamp } = parseSignatureHeader(signatureHeader);
   if (Math.abs(nowSeconds - timestamp) > toleranceSeconds) {
     throw new FedaPayWebhookError("Webhook timestamp outside tolerance");
   }
 
-  const expected = createHmac("sha256", secret)
-    .update(`${timestamp}.${rawBody}`, "utf8")
-    .digest("hex");
-  if (!signatures.some((signature) => constantTimeHexEqual(signature, expected))) {
-    throw new FedaPayWebhookError("Webhook signature mismatch");
-  }
-
   try {
-    return JSON.parse(rawBody);
+    return Webhook.constructEvent(
+      rawBody,
+      signatureHeader,
+      secret,
+      toleranceSeconds,
+    );
   } catch {
-    throw new FedaPayWebhookError("Invalid webhook JSON");
+    throw new FedaPayWebhookError("Invalid webhook signature or payload");
   }
 }
 
