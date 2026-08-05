@@ -1,5 +1,8 @@
 import sql from "@/app/api/utils/sql";
-import { isValidFedaPayTransactionId, requestFedaPay } from "@/lib/fedapay";
+import {
+  isValidFedaPayTransactionId,
+  retrieveFedaPayTransaction,
+} from "@/lib/fedapay";
 
 function failure(code, status, message) {
   return { ok: false, code, status, error: message };
@@ -57,7 +60,7 @@ export async function settleFedaPayDeposit({ transactionId, userId = null }) {
     return failure("intent_not_payable", 409, "Deposit intent is not payable");
   }
 
-  const transaction = await requestFedaPay(`/transactions/${transactionId}`);
+  const transaction = await retrieveFedaPayTransaction(transactionId);
   if (String(transaction?.id || "") !== transactionId) {
     return failure("identity_mismatch", 400, "Transaction identity mismatch");
   }

@@ -4,6 +4,12 @@ Omni creates FedaPay transactions on the server and settles wallet deposits
 only after retrieving an `approved` transaction from FedaPay's API. The browser
 callback and the webhook use the same idempotent settlement service.
 
+The server integration uses the official `fedapay` Node.js SDK. Because SDK
+version `1.2.5` declares an obsolete Axios range, pnpm forces its transitive
+dependency to the audited project version through the `fedapay>axios` override
+in `pnpm-workspace.yaml`. Keep the direct Axios version and this override in
+sync when upgrading either dependency.
+
 ## Required configuration
 
 Configure these variables in each deployment environment:
