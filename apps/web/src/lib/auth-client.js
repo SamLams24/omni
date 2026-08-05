@@ -12,7 +12,9 @@ function getAuthClient() {
     throw new Error('Authentication is not configured');
   }
 
-  authClient ||= createAuthClient(authUrl);
+  authClient ||= createAuthClient(authUrl, {
+    fetchOptions: { credentials: 'include' },
+  });
   return authClient;
 }
 
@@ -28,16 +30,59 @@ export async function getSession() {
   };
 }
 
-export function signInWithCredentials({ email, password }) {
-  return getAuthClient().signIn.email({ email, password });
+async function setSessionCookie(token) {
+  try {
+    await fetch('/api/auth/set-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ token }),
+    });
+  } catch (e) {
+    console.error('[Auth] Failed to set session cookie:', e);
+  }
 }
 
-export function signUpWithCredentials({ email, password, name }) {
-  return getAuthClient().signUp.email({ email, password, name });
+async function clearSessionCookie() {
+  try {
+    await fetch('/api/auth/clear-session', {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch (e) {
+    console.error('[Auth] Failed to clear session cookie:', e);
+  }
 }
 
-export function signOut() {
-  return getAuthClient().signOut();
+export async function signInWithCredentials({ email, password }) {
+  const client = getAuthClient();
+  const result = await client.signIn.email({ email, password });
+  if (!result.error) {
+    const { data: tokenData } = await client.token();
+    if (tokenData?.token) {
+      await setSessionCookie(tokenData.token);
+    }
+  }
+  return result;
+}
+
+export async function signUpWithCredentials({ email, password, name }) {
+  const client = getAuthClient();
+  const result = await client.signUp.email({ email, password, name });
+  if (!result.error) {
+    const { data: tokenData } = await client.token();
+    if (tokenData?.token) {
+      await setSessionCookie(tokenData.token);
+    }
+  }
+  return result;
+}
+
+export async function signOut() {
+  const client = getAuthClient();
+  const result = await client.signOut();
+  await clearSessionCookie();
+  return result;
 }
 
 export async function checkAuth() {
