@@ -21,6 +21,7 @@ describe('database migrations', () => {
       '0002_product_timestamps.sql',
       '0003_transactions_reference_unique.sql',
       '0004_wallet_deposit_intents.sql',
+      '0005_fedapay_webhook_events.sql',
     ]);
     expect(migrations[0].checksum).toBe(
       checksumMigration(migrations[0].sql),

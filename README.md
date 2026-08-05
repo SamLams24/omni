@@ -86,6 +86,7 @@ See `.env.example` for required environment variables. Never commit `.env` files
 - [Repository audit](docs/REPOSITORY_AUDIT.md)
 - [Architecture decision: source of truth](docs/architecture/ADR-001-source-of-truth.md)
 - [Architecture decision: database migrations](docs/architecture/ADR-002-database-migrations.md)
+- [FedaPay operations](docs/operations/fedapay.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Product requirements](OMNI_PRD_v1.0.md)
