@@ -59,3 +59,35 @@ jobs:
 
       - name: Build production bundle
         run: pnpm build
+
+  e2e:
+    name: Playwright smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: validate
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run browser smoke tests
+        run: pnpm test:e2e
