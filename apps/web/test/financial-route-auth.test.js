@@ -9,6 +9,7 @@ const financialRouteFiles = [
   "../src/app/api/subscriptions/status/route.js",
   "../src/app/api/subscriptions/upgrade/route.js",
   "../src/app/api/wallet/balance/route.js",
+  "../src/app/api/wallet/deposit-intent/route.js",
   "../src/app/api/wallet/verify-fedapay/route.js",
   "../src/app/api/wallet/withdraw/route.js",
 ];
@@ -65,6 +66,27 @@ describe("financial route authorization", () => {
 
     expect(source).toContain('code: "FEATURE_DISABLED"');
     expect(source).not.toContain("INSERT INTO wallets");
+  });
+
+  it("settles only server-created FedaPay deposit intents", () => {
+    const createIntent = readSource(
+      "../src/app/api/wallet/deposit-intent/route.js",
+    );
+    const verify = readSource("../src/app/api/wallet/verify-fedapay/route.js");
+
+    expect(createIntent).toContain("omni_deposit_intent_id");
+    expect(createIntent).toContain('currency: { iso: "XOF" }');
+    expect(verify).toContain('tx.status !== "approved"');
+    expect(verify).toContain("Transaction ownership mismatch");
+    expect(verify).toContain("ON CONFLICT (user_id) DO NOTHING");
+    expect(verify).toContain("claimed_intent AS");
+    expect(verify).toContain("recorded_tx AS");
+    expect(verify).toContain("credited_wallet AS");
+    expect(verify).toContain(
+      "ON CONFLICT (reference) WHERE reference IS NOT NULL DO NOTHING",
+    );
+    expect(verify).not.toContain("completed");
+    expect(verify).not.toContain('"paid"');
   });
 
   it("restricts escrow actions to cart participants", () => {

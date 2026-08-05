@@ -1,5 +1,10 @@
 import sql from "@/app/api/utils/sql";
 import { getAuthenticatedUser } from "@/lib/auth";
+import {
+  FedaPayApiError,
+  isValidFedaPayTransactionId,
+  requestFedaPay,
+} from "@/lib/fedapay";
 
 // Simple in-memory rate limiter (10 requests per minute per user)
 const rateLimits = new Map();
@@ -44,98 +49,121 @@ export async function POST(request) {
       );
     }
 
-    const body = await request.json();
-    const { transactionId, amount } = body;
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+    const { transactionId } = body;
 
     // Validate input
-    if (!transactionId || typeof transactionId !== "string") {
+    if (!isValidFedaPayTransactionId(transactionId)) {
       return Response.json(
-        { error: "transactionId is required" },
+        { error: "A valid transactionId is required" },
         { status: 400 },
       );
     }
-    // amount is optional — we use the API-confirmed amount for crediting
-
-    // Verify with FedaPay API
-    const apiKey = process.env.FEDAPAY_SECRET_KEY;
-    if (!apiKey) {
-      console.error("[FedaPay] Secret key not configured");
-      return Response.json(
-        { error: "Payment provider not configured" },
-        { status: 500 },
-      );
-    }
-
-    const response = await fetch(
-      `https://app.fedapay.com/api/v1/transactions/${transactionId}.json`,
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-      },
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("[FedaPay] Verification failed:", errText);
-      return Response.json(
-        { error: "Payment verification failed" },
-        { status: 400 },
-      );
-    }
-
-    const tx = await response.json();
-
-    // Accept "approved", "completed", or "paid" as valid statuses (FedaPay uses
-    // different labels across API versions). Also accept "approved" for test mode.
-    const validStatuses = ["approved", "completed", "paid"];
-    if (!tx.status || !validStatuses.includes(tx.status.toLowerCase())) {
-      return Response.json({
-        ok: false,
-        error: `Transaction status "${tx.status}" is not accepted`,
-      });
-    }
-
-    // Record the credit — use the API-confirmed amount, NOT client-supplied amount
-    const confirmedAmount = Number(tx.amount);
-    if (!confirmedAmount || confirmedAmount <= 0) {
-      return Response.json({ ok: false, error: "Transaction amount is invalid" });
-    }
-
-    // Atomic credit + insert using CTE.
-    // ON CONFLICT on wallets handles wallet upsert.
-    // ON CONFLICT on transactions.reference prevents duplicate credits
-    // even under MVCC snapshot (requires unique index on reference).
-    const reference = `fedapay:${transactionId}`;
-    const credited = await sql`
-      WITH credited AS (
-        INSERT INTO wallets (user_id, balance)
-        VALUES (${userId}, ${confirmedAmount})
-        ON CONFLICT (user_id) DO UPDATE
-          SET balance = wallets.balance + EXCLUDED.balance,
-              updated_at = CURRENT_TIMESTAMP
-        RETURNING id, balance
-      ),
-      new_tx AS (
-        INSERT INTO transactions (wallet_id, type, amount, reference)
-        SELECT id, 'deposit', ${confirmedAmount}, ${reference}
-        FROM credited
-        ON CONFLICT (reference) DO NOTHING
-        RETURNING id
-      )
-      SELECT
-        (SELECT balance FROM credited) AS balance,
-        (SELECT id FROM new_tx) AS tx_id
+    const intents = await sql`
+      SELECT id, amount, currency, status
+      FROM wallet_deposit_intents
+      WHERE user_id = ${userId}
+        AND provider = 'fedapay'
+        AND provider_transaction_id = ${transactionId}
+      LIMIT 1
     `;
+    const intent = intents[0];
+    if (!intent) {
+      return Response.json({ error: "Deposit intent not found" }, { status: 404 });
+    }
 
-    if (!credited[0]?.tx_id) {
-      // Duplicate — transaction was already processed, return current balance
+    if (intent.status === "settled") {
       const wallets = await sql`SELECT balance FROM wallets WHERE user_id = ${userId}`;
       return Response.json({
         ok: true,
         message: "Transaction already processed",
         balance: wallets.length > 0 ? Number(wallets[0].balance) : 0,
+        amount: Number(intent.amount),
+        currency: intent.currency,
+      });
+    }
+    if (intent.status !== "pending") {
+      return Response.json(
+        { error: "Deposit intent is not payable" },
+        { status: 409 },
+      );
+    }
+
+    const tx = await requestFedaPay(`/transactions/${transactionId}`);
+    if (String(tx?.id || "") !== transactionId) {
+      return Response.json({ error: "Transaction identity mismatch" }, { status: 400 });
+    }
+    if (tx.status !== "approved") {
+      return Response.json(
+        { ok: false, error: "Transaction is not approved" },
+        { status: 409 },
+      );
+    }
+
+    const confirmedAmount = Number(tx.amount);
+    const expectedAmount = Number(intent.amount);
+    if (!Number.isSafeInteger(confirmedAmount) || confirmedAmount !== expectedAmount) {
+      return Response.json({ error: "Transaction amount mismatch" }, { status: 400 });
+    }
+    if (tx.custom_metadata?.omni_deposit_intent_id !== intent.id) {
+      return Response.json({ error: "Transaction ownership mismatch" }, { status: 403 });
+    }
+
+    await sql`
+      INSERT INTO wallets (user_id, balance)
+      VALUES (${userId}, 0)
+      ON CONFLICT (user_id) DO NOTHING
+    `;
+
+    const reference = `fedapay:${transactionId}`;
+    const credited = await sql`
+      WITH claimed_intent AS (
+        UPDATE wallet_deposit_intents
+        SET status = 'settled',
+            settled_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${intent.id}
+          AND user_id = ${userId}
+          AND provider_transaction_id = ${transactionId}
+          AND status = 'pending'
+          AND amount = ${confirmedAmount}
+        RETURNING amount
+      ),
+      recorded_tx AS (
+        INSERT INTO transactions (wallet_id, type, amount, reference)
+        SELECT wallets.id, 'deposit', claimed_intent.amount, ${reference}
+        FROM wallets, claimed_intent
+        WHERE wallets.user_id = ${userId}
+        ON CONFLICT (reference) WHERE reference IS NOT NULL DO NOTHING
+        RETURNING wallet_id
+      ),
+      credited_wallet AS (
+        UPDATE wallets
+        SET balance = wallets.balance + claimed_intent.amount,
+            updated_at = CURRENT_TIMESTAMP
+        FROM claimed_intent, recorded_tx
+        WHERE wallets.id = recorded_tx.wallet_id
+        RETURNING wallets.balance
+      )
+      SELECT
+        (SELECT balance FROM credited_wallet) AS balance,
+        EXISTS (SELECT 1 FROM claimed_intent) AS claimed,
+        EXISTS (SELECT 1 FROM recorded_tx) AS recorded
+    `;
+
+    if (!credited[0]?.recorded) {
+      const wallets = await sql`SELECT balance FROM wallets WHERE user_id = ${userId}`;
+      return Response.json({
+        ok: true,
+        message: "Transaction already processed",
+        balance: wallets.length > 0 ? Number(wallets[0].balance) : 0,
+        amount: confirmedAmount,
+        currency: "XOF",
       });
     }
 
@@ -143,12 +171,16 @@ export async function POST(request) {
       ok: true,
       balance: Number(credited[0].balance),
       transactionId,
+      amount: confirmedAmount,
+      currency: "XOF",
     });
   } catch (error) {
-    console.error("[FedaPay] Error verifying transaction:", error);
+    console.error("[FedaPay] Transaction verification failed");
     return Response.json(
-      { error: "Internal server error" },
-      { status: 500 },
+      { error: error instanceof FedaPayApiError && error.status === 500
+        ? "Payment provider not configured"
+        : "Payment verification unavailable" },
+      { status: error instanceof FedaPayApiError ? error.status : 500 },
     );
   }
 }
