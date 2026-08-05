@@ -19,6 +19,7 @@ describe('database migrations', () => {
     expect(migrations.map(({ filename }) => filename)).toEqual([
       '0001_baseline.sql',
       '0002_product_timestamps.sql',
+      '0003_transactions_reference_unique.sql',
     ]);
     expect(migrations[0].checksum).toBe(
       checksumMigration(migrations[0].sql),

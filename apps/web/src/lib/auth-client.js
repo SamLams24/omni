@@ -93,22 +93,15 @@ export async function checkAuth() {
 export async function syncAuthSession() {
   try {
     const client = getAuthClient();
-    console.log('[SyncAuth] Calling client.token()...');
-    const { data: tokenData, error: tokenError } = await client.token();
-    console.log('[SyncAuth] token() result:', tokenData?.token ? `token(${tokenData.token.length} chars)` : 'no token', '| error:', tokenError?.message || 'none');
+    const { data: tokenData } = await client.token();
 
     if (tokenData?.token) {
-      console.log('[SyncAuth] Calling setSessionCookie...');
       await setSessionCookie(tokenData.token);
-      console.log('[SyncAuth] Fetching /api/auth/session after set-cookie...');
       const res = await fetch('/api/auth/session', { cache: 'no-store' });
-      const result = await res.json();
-      console.log('[SyncAuth] Session result:', result?.user ? `user=${result.user.id}` : 'null');
-      return result;
+      return res.json();
     }
-    console.log('[SyncAuth] No token from client.token()');
-  } catch (e) {
-    console.error('[Auth] Failed to sync session:', e);
+  } catch {
+    console.error('[Auth] Failed to sync session');
   }
   return { user: null, session: null };
 }

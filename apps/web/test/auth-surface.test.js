@@ -22,13 +22,18 @@ describe('authentication surface', () => {
 
   it('does not hardcode an auth tenant or log session data', () => {
     const client = readSource('../src/lib/auth-client.js');
+    const serverAuth = readSource('../src/lib/auth.ts');
     const route = readSource('../src/app/api/auth/session/route.js');
+    const setSessionRoute = readSource('../src/app/api/auth/set-session/route.js');
 
     expect(client).toContain('NEXT_PUBLIC_NEON_AUTH_URL');
     expect(client).not.toMatch(/neonauth\.[^'"]+/);
+    expect(client).not.toContain('console.log');
     expect(route).not.toContain('createAuthClient');
     expect(route).not.toContain('console.');
     expect(route).not.toContain("headers.get('cookie')");
+    expect(serverAuth).not.toContain('console.log');
+    expect(setSessionRoute).not.toContain('token.substring');
   });
 
   it('does not derive protected screen identity from the local cache', () => {

@@ -9,7 +9,16 @@ const financialRouteFiles = [
   "../src/app/api/subscriptions/status/route.js",
   "../src/app/api/subscriptions/upgrade/route.js",
   "../src/app/api/wallet/balance/route.js",
-  "../src/app/api/wallet/deposit/route.js",
+  "../src/app/api/wallet/verify-fedapay/route.js",
+  "../src/app/api/wallet/withdraw/route.js",
+];
+
+const simulatedFinancialMutationFiles = [
+  "../src/app/api/escrow/dispute/route.js",
+  "../src/app/api/escrow/refund/route.js",
+  "../src/app/api/escrow/release/route.js",
+  "../src/app/api/subscription/cancel/route.js",
+  "../src/app/api/subscriptions/upgrade/route.js",
   "../src/app/api/wallet/withdraw/route.js",
 ];
 
@@ -44,13 +53,18 @@ describe("financial route authorization", () => {
   );
 
   it("keeps simulated financial mutations disabled in production", () => {
-    for (const relativePath of financialRouteFiles.filter(
-      (path) => !path.includes("/status/"),
-    )) {
+    for (const relativePath of simulatedFinancialMutationFiles) {
       expect(readSource(relativePath)).toContain(
         'requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS")',
       );
     }
+  });
+
+  it("keeps the legacy deposit endpoint disabled", () => {
+    const source = readSource("../src/app/api/wallet/deposit/route.js");
+
+    expect(source).toContain('code: "FEATURE_DISABLED"');
+    expect(source).not.toContain("INSERT INTO wallets");
   });
 
   it("restricts escrow actions to cart participants", () => {

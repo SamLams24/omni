@@ -45,10 +45,7 @@ export async function getServerSession(request) {
   const cookieHeader = request.headers.get('cookie');
   const token = parseCookie(cookieHeader, 'omni_session');
 
-  console.log('[Auth] getServerSession | authUrl:', authUrl ? 'SET' : 'MISSING', '| token:', token ? `present(${token.length} chars)` : 'MISSING');
-
   if (!authUrl || !token) {
-    console.log('[Auth] getServerSession returning null -', !authUrl ? 'no authUrl' : 'no token');
     return null;
   }
 

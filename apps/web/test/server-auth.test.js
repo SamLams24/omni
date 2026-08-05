@@ -49,7 +49,7 @@ describe('server authentication', () => {
 
     const request = new Request('https://omni.test/api/profile', {
       headers: {
-        cookie: 'omni.session=server-validated-token',
+        cookie: 'omni_session=server-validated-token',
         'x-user-id': 'ignored-attacker-value',
       },
     });
@@ -63,7 +63,7 @@ describe('server authentication', () => {
       expect.objectContaining({
         cache: 'no-store',
         headers: expect.objectContaining({
-          cookie: 'omni.session=server-validated-token',
+          authorization: 'Bearer server-validated-token',
         }),
       })
     );
@@ -78,7 +78,7 @@ describe('server authentication', () => {
 
     const request = new Request('https://omni.test/api/profile', {
       headers: {
-        cookie: 'omni.session=invalid',
+        cookie: 'omni_session=invalid',
       },
     });
 

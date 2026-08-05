@@ -163,11 +163,14 @@ export default function CartHistory() {
                             const authRes = await fetch("/api/auth/session", { cache: "no-store" });
                             const authData = await authRes.json();
                             if (!authData?.user) { window.location.href = "/auth"; return; }
-                            fetch("/api/availability/request", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ vendorId: cart.vendor_id, facilityId: cart.facility_id, productId: cart.items[0]?.product_id, quantity: 1 }),
-                          }).then(r => r.json()).then(data => setChatRequest(data.request)).catch(() => {});
+                            const response = await fetch("/api/availability/request", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ vendorId: cart.vendor_id, facilityId: cart.facility_id, productId: cart.items[0]?.product_id, quantity: 1 }),
+                            });
+                            const data = await response.json();
+                            setChatRequest(data.request);
+                          } catch {}
                         }}
                         className="flex items-center gap-1 text-[10px] text-emerald-400/60 hover:text-emerald-400 transition-colors"
                       >
