@@ -515,41 +515,42 @@ function RouteGuard({ children }: { children: ReactNode }) {
   const pathname = location.pathname;
   const [authed, setAuthed] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [prevPathname, setPrevPathname] = useState(pathname);
 
   const publicRoutes = ["/map", "/auth", "/", "/onboarding"];
   const isPublic = publicRoutes.some((route) => pathname === route || pathname.startsWith("/auth") || pathname.startsWith("/onboarding"));
 
-  const checkAuth = async () => {
-    try {
-      let data;
-      const res = await fetch("/api/auth/session", { cache: "no-store" });
-      data = await res.json();
-      console.log('[RouteGuard] session check:', data?.user ? `user=${data.user.id}` : 'null');
-
-      if (!data?.user) {
-        console.log('[RouteGuard] No user, trying syncAuthSession...');
-        const { syncAuthSession } = await import("@/lib/auth-client");
-        data = await syncAuthSession();
-        console.log('[RouteGuard] syncAuthSession result:', data?.user ? `user=${data.user.id}` : 'null');
-      }
-
-      if (data?.user?.id) setAuthed(true);
-    } catch (e) {
-      console.error('[RouteGuard] checkAuth error:', e);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    if (!isPublic) {
+      setChecking(true);
+      setAuthed(false);
     }
-    setChecking(false);
-  };
+  }
 
   useEffect(() => {
+    let cancelled = false;
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/auth/session", { cache: "no-store" });
+        const data = await res.json();
+        if (cancelled) return;
+        if (data?.user) {
+          setAuthed(true);
+        } else {
+          try {
+            const { syncAuthSession } = await import("@/lib/auth-client");
+            const synced = await syncAuthSession();
+            if (cancelled) return;
+            if (synced?.user) setAuthed(true);
+          } catch {}
+        }
+      } catch {}
+      if (!cancelled) setChecking(false);
+    };
     checkAuth();
-  }, []);
-
-  useEffect(() => {
-    if (!isPublic && !authed && !checking) {
-      console.log('[RouteGuard] Navigated to protected route, re-checking auth...');
-      checkAuth();
-    }
-  }, [pathname, isPublic]);
+    return () => { cancelled = true; };
+  }, [pathname]);
 
   if (isPublic) return <>{children}</>;
 
