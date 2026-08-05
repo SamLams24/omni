@@ -30,15 +30,20 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const u = JSON.parse(localStorage.getItem("omni_user") || "{}");
-      setUserName(u.name || "Acheteur");
-    } catch {}
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => setUserName(data?.user?.name || "Acheteur"))
+      .catch(() => setUserName("Acheteur"));
   }, []);
 
   useEffect(() => {
     const load = async () => {
-      const userId = (() => { try { const u = localStorage.getItem("omni_user"); return u ? JSON.parse(u).id : null; } catch { return null; } })();
+      let userId = null;
+      try {
+        const res = await fetch("/api/auth/session", { cache: "no-store" });
+        const data = await res.json();
+        userId = data?.user?.id || null;
+      } catch {}
       if (!userId) { navigate("/auth"); return; }
 
       try {

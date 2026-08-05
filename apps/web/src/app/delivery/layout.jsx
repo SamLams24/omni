@@ -14,10 +14,10 @@ export default function DeliveryLayout({ children }) {
   const isTablet = useIsTablet();
 
   useEffect(() => {
-    try {
-      const u = JSON.parse(localStorage.getItem("omni_user") || "{}");
-      setUserName(u.name || "Livreur");
-    } catch {}
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => setUserName(data?.user?.name || "Livreur"))
+      .catch(() => setUserName("Livreur"));
   }, []);
 
   const navItems = [

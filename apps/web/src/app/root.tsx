@@ -515,20 +515,42 @@ function RouteGuard({ children }: { children: ReactNode }) {
   const pathname = location.pathname;
   const [authed, setAuthed] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [prevPathname, setPrevPathname] = useState(pathname);
 
   const publicRoutes = ["/map", "/auth", "/", "/onboarding"];
   const isPublic = publicRoutes.some((route) => pathname === route || pathname.startsWith("/auth") || pathname.startsWith("/onboarding"));
 
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    if (!isPublic) {
+      setChecking(true);
+      setAuthed(false);
+    }
+  }
+
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("omni_user");
-      if (stored) {
-        const user = JSON.parse(stored);
-        if (user.id) { setAuthed(true); setChecking(false); return; }
-      }
-    } catch {}
-    setChecking(false);
-  }, []);
+    let cancelled = false;
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/auth/session", { cache: "no-store" });
+        const data = await res.json();
+        if (cancelled) return;
+        if (data?.user) {
+          setAuthed(true);
+        } else {
+          try {
+            const { syncAuthSession } = await import("@/lib/auth-client");
+            const synced = await syncAuthSession();
+            if (cancelled) return;
+            if (synced?.user) setAuthed(true);
+          } catch {}
+        }
+      } catch {}
+      if (!cancelled) setChecking(false);
+    };
+    checkAuth();
+    return () => { cancelled = true; };
+  }, [pathname]);
 
   if (isPublic) return <>{children}</>;
 

@@ -4,6 +4,18 @@
 - Audited branch: `main`
 - Baseline commit: `274ec536a4ad6a3fb962f9d582ca3fa3127b2225`
 
+## Security Fixes (August 2026)
+
+### Completed
+- ✅ Removed all `x-user-id` header usage (insecure client-controlled identity)
+- ✅ Removed all `localStorage.setItem('omni_user')` calls
+- ✅ Replaced AuthGuard localStorage check with session validation
+- ✅ Added comprehensive security regression tests
+
+### Remaining
+- ⚠️ Financial operations still use mock logic (protected by feature flag)
+- ⚠️ No E2E tests for critical user journeys
+
 ## Executive summary
 
 Omni has a demonstrable product concept and a substantial React web MVP, but

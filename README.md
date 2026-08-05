@@ -69,6 +69,18 @@ cd apps/web
 pnpm validate
 ```
 
+## Security
+
+### Authentication
+
+Omni uses Neon Auth for server-side session management. All API routes validate sessions using `getAuthenticatedUser()` from `src/lib/auth.ts`.
+
+**Important:** Never use `localStorage` for authentication state. Never send `x-user-id` headers from the client.
+
+### Environment Variables
+
+See `.env.example` for required environment variables. Never commit `.env` files with real values.
+
 ## Documentation
 
 - [Repository audit](docs/REPOSITORY_AUDIT.md)

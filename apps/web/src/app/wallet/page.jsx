@@ -17,9 +17,13 @@ export default function WalletPage() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    const user = localStorage.getItem("omni_user");
-    if (!user) { navigate("/auth"); return; }
-    loadWallet();
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => {
+        if (!data?.user) { navigate("/auth"); return; }
+        loadWallet();
+      })
+      .catch(() => navigate("/auth"));
   }, []);
 
   const loadWallet = async () => {

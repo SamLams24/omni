@@ -22,12 +22,7 @@ export default function VendorProductsPage() {
 
   const loadVendorData = async () => {
     try {
-      const storedUser = localStorage.getItem("omni_user");
-      const userId = storedUser ? JSON.parse(storedUser).id : null;
-
-      const response = await fetch("/api/vendors/my-vendor", {
-        headers: userId ? { 'x-user-id': userId } : {},
-      });
+      const response = await fetch("/api/vendors/my-vendor");
 
       if (!response.ok) throw new Error("Failed to load vendor");
 
@@ -47,9 +42,6 @@ export default function VendorProductsPage() {
     setLoading(true);
 
     try {
-      const storedUser = localStorage.getItem("omni_user");
-      const userId = storedUser ? JSON.parse(storedUser).id : null;
-
       const url = editingProduct
         ? `/api/vendors/products/${editingProduct.id}`
         : "/api/vendors/products/create";
@@ -58,7 +50,6 @@ export default function VendorProductsPage() {
         method: editingProduct ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(userId ? { 'x-user-id': userId } : {})
         },
         body: JSON.stringify({
           vendorId: vendor.id,
@@ -87,12 +78,8 @@ export default function VendorProductsPage() {
     if (!confirm("Supprimer ce produit?")) return;
 
     try {
-      const storedUser = localStorage.getItem("omni_user");
-      const userId = storedUser ? JSON.parse(storedUser).id : null;
-
       const response = await fetch(`/api/vendors/products/${productId}`, {
         method: "DELETE",
-        headers: userId ? { 'x-user-id': userId } : {},
       });
 
       if (!response.ok) throw new Error("Failed to delete product");

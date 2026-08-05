@@ -30,12 +30,7 @@ export default function VendorSettingsPage() {
 
   const loadVendor = async () => {
     try {
-      const storedUser = localStorage.getItem("omni_user");
-      const userId = storedUser ? JSON.parse(storedUser).id : null;
-
-      const res = await fetch("/api/vendors/my-vendor", {
-        headers: userId ? { "x-user-id": userId } : {},
-      });
+      const res = await fetch("/api/vendors/my-vendor");
       if (!res.ok) { setVendor(null); setLoading(false); return; }
 
       const data = await res.json();
@@ -80,12 +75,9 @@ export default function VendorSettingsPage() {
     setSuccess(null);
 
     try {
-      const storedUser = localStorage.getItem("omni_user");
-      const userId = storedUser ? JSON.parse(storedUser).id : null;
-
       const res = await fetch("/api/vendors/update", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vendorId: vendor.id,
           ...form,
@@ -105,12 +97,8 @@ export default function VendorSettingsPage() {
   const handleDeleteVendor = async () => {
     setDeleting(true);
     try {
-      const storedUser = localStorage.getItem("omni_user");
-      const userId = storedUser ? JSON.parse(storedUser).id : null;
-
       const res = await fetch("/api/vendors/delete", {
         method: "DELETE",
-        headers: { "x-user-id": userId, "x-vendor-id": vendor.id },
       });
       if (!res.ok) throw new Error("Erreur lors de la suppression");
       window.location.href = "/vendor/onboarding";
@@ -122,10 +110,9 @@ export default function VendorSettingsPage() {
 
   const toggleFacilityStatus = async (facilityId, isOnline) => {
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       await fetch("/api/facilities/toggle-status", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ facilityId, isOnline: !isOnline }),
       });
       await loadVendor();
@@ -146,10 +133,9 @@ export default function VendorSettingsPage() {
   const handleSaveFacility = async (facilityId) => {
     setSavingFacility(true);
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user")).id;
       const res = await fetch(`/api/facilities/${facilityId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(facilityForm),
       });
       if (!res.ok) throw new Error("Erreur");

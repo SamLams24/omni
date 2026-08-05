@@ -34,7 +34,7 @@ function useAuth() {
   const signOut = useCallback(async () => {
     const { signOut: apiSignOut } = await import('@/lib/auth-client');
     await apiSignOut();
-    localStorage.removeItem('omni_user');
+    // Session is managed by Neon Auth cookies - no localStorage to clear
     setUser(null);
     navigate('/');
   }, [navigate]);
@@ -48,7 +48,7 @@ function useAuth() {
 
     const authenticatedUser = result.data?.user || null;
     if (authenticatedUser) {
-      localStorage.setItem('omni_user', JSON.stringify(authenticatedUser));
+      // Session is managed by Neon Auth cookies - no localStorage needed
       setUser(authenticatedUser);
     }
     if (options.redirect !== false) {
@@ -66,7 +66,7 @@ function useAuth() {
 
     const authenticatedUser = result.data?.user || null;
     if (authenticatedUser) {
-      localStorage.setItem('omni_user', JSON.stringify(authenticatedUser));
+      // Session is managed by Neon Auth cookies - no localStorage needed
       setUser(authenticatedUser);
     }
     if (options.redirect !== false) {

@@ -7,9 +7,14 @@ import { Map, Store, Truck, ChevronRight, Navigation } from "lucide-react";
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [name, setName] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("omni_user") || "{}").name || ""; } catch { return ""; }
-  });
+  const [name, setName] = useState("");
+
+  useEffect(() => {
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => { if (data?.user?.name) setName(data.user.name); })
+      .catch(() => {});
+  }, []);
 
   const finish = (role) => {
     localStorage.setItem("onboarding_done", "true");

@@ -28,10 +28,11 @@ export default function NotificationBell() {
   }, []);
 
   const loadNotifications = async () => {
-    const storedUser = localStorage.getItem("omni_user");
-    if (!storedUser) return;
-
     try {
+      const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+      const authData = await authRes.json();
+      if (!authData?.user) return;
+
       const res = await fetch("/api/notifications");
       const data = await res.json();
       setNotifications(data.notifications || []);

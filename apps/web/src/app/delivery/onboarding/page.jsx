@@ -29,10 +29,13 @@ export default function DeliveryOnboarding() {
   const [deviationKm, setDeviationKm] = useState(2);
 
   useEffect(() => {
-    const user = localStorage.getItem("omni_user");
-    if (!user) { navigate("/auth"); return; }
-    const u = JSON.parse(user);
-    if (u.name) setFullName(u.name);
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => {
+        if (!data?.user) { navigate("/auth"); return; }
+        if (data.user.name) setFullName(data.user.name);
+      })
+      .catch(() => navigate("/auth"));
   }, []);
 
   const submit = async () => {

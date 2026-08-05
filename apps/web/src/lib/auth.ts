@@ -7,7 +7,7 @@ const dbUrl = process.env.DATABASE_URL;
 const sql = dbUrl ? neon(dbUrl) : null;
 
 function getAuthUrl() {
-  return process.env.NEON_AUTH_URL?.replace(/\/+$/, '') || null;
+  return (process.env.NEON_AUTH_URL || import.meta.env.VITE_NEON_AUTH_URL || '').replace(/\/+$/, '') || null;
 }
 
 async function ensureAppUser(authUser) {
@@ -28,11 +28,27 @@ async function ensureAppUser(authUser) {
   }
 }
 
+function parseCookie(cookieHeader, name) {
+  if (!cookieHeader) return null;
+  for (const pair of cookieHeader.split(';')) {
+    const idx = pair.indexOf('=');
+    if (idx === -1) continue;
+    const key = pair.slice(0, idx).trim();
+    const value = pair.slice(idx + 1).trim();
+    if (key === name) return decodeURIComponent(value);
+  }
+  return null;
+}
+
 export async function getServerSession(request) {
   const authUrl = getAuthUrl();
-  const cookie = request.headers.get('cookie');
+  const cookieHeader = request.headers.get('cookie');
+  const token = parseCookie(cookieHeader, 'omni_session');
 
-  if (!authUrl || !cookie) {
+  console.log('[Auth] getServerSession | authUrl:', authUrl ? 'SET' : 'MISSING', '| token:', token ? `present(${token.length} chars)` : 'MISSING');
+
+  if (!authUrl || !token) {
+    console.log('[Auth] getServerSession returning null -', !authUrl ? 'no authUrl' : 'no token');
     return null;
   }
 
@@ -40,7 +56,7 @@ export async function getServerSession(request) {
     const response = await fetch(`${authUrl}/get-session`, {
       headers: {
         accept: 'application/json',
-        cookie,
+        authorization: `Bearer ${token}`,
       },
       cache: 'no-store',
       signal: AbortSignal.timeout(5000),

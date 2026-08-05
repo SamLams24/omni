@@ -12,8 +12,10 @@ export default function ReviewForm({ facilityId, onSubmitted }) {
     if (rating === 0) return;
     setSending(true);
     try {
-      const userId = JSON.parse(localStorage.getItem("omni_user") || "{}").id;
-      if (!userId) { toast("Connecte-toi d'abord"); return; }
+      const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+      const authData = await authRes.json();
+      if (!authData?.user) { toast("Connecte-toi d'abord"); return; }
+
       const res = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -11,19 +11,21 @@ export function AuthGuard({ children }) {
   const location = useLocation();
 
   useEffect(() => {
-    const stored = localStorage.getItem("omni_user");
-    if (stored) {
+    const checkSession = async () => {
       try {
-        const user = JSON.parse(stored);
-        if (user.id) {
+        const { getSession } = await import('@/lib/auth-client');
+        const session = await getSession();
+        if (session?.user) {
           setIsAuthenticated(true);
           setIsLoading(false);
           return;
         }
       } catch {}
-    }
-    const callback = encodeURIComponent(location.pathname + location.search);
-    navigate(`/auth?callbackUrl=${callback}`, { replace: true });
+      const callback = encodeURIComponent(location.pathname + location.search);
+      navigate(`/auth?callbackUrl=${callback}`, { replace: true });
+    };
+    
+    checkSession();
   }, [navigate, location]);
 
   if (isLoading) {

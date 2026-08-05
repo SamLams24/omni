@@ -8,13 +8,18 @@ export default function FavoriteButton({ vendorId, initialFavorited = false }) {
   const [loading, setLoading] = useState(false);
 
   const toggleFavorite = async () => {
-    const storedUser = localStorage.getItem("omni_user");
-    if (!storedUser) {
+    try {
+      const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+      const authData = await authRes.json();
+      if (!authData?.user) {
+        window.location.href = "/auth";
+        return;
+      }
+    } catch {
       window.location.href = "/auth";
       return;
     }
 
-    const userId = JSON.parse(storedUser).id;
     setLoading(true);
 
     try {

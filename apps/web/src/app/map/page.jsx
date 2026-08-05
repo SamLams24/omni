@@ -20,6 +20,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 export default function MapPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
+  const [userName, setUserName] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [sortBy, setSortBy] = useState("distance");
@@ -146,11 +147,18 @@ export default function MapPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch("/api/auth/session");
-        const data = await response.json();
+        let data;
+        const response = await fetch("/api/auth/session", { cache: "no-store" });
+        data = await response.json();
+
+        if (!data?.user) {
+          const { syncAuthSession } = await import("@/lib/auth-client");
+          data = await syncAuthSession();
+        }
+
         if (data?.user) {
-          localStorage.setItem("omni_user", JSON.stringify(data.user));
           setIsAuthenticated(true);
+          setUserName(data.user.name || null);
         }
       } catch (error) {
         console.error("Auth check failed:", error);
@@ -1142,7 +1150,8 @@ export default function MapPage() {
       <div className={`absolute ${isMobile ? "top-4 right-4" : "top-4 right-4"} z-20 flex items-center gap-2`}>
         <MobileNav
           isAuthenticated={isAuthenticated}
-          userName={(() => { try { const u = JSON.parse(localStorage.getItem("omni_user") || "{}"); return u.name; } catch { return null; }})()}
+          authChecking={authChecking}
+          userName={userName}
           balance={walletBalance}
         />
         <div className="hidden sm:flex items-center gap-2">

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Menu, X, Store, Truck, Wallet, Crown, User, LogIn, Map, ShoppingBag, LayoutDashboard } from "lucide-react";
 
-export default function MobileNav({ isAuthenticated, userName, balance }) {
+export default function MobileNav({ isAuthenticated, authChecking, userName, balance }) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -17,8 +17,9 @@ export default function MobileNav({ isAuthenticated, userName, balance }) {
     setOpen(false);
     if (role === "vendor") {
       try {
-        const stored = localStorage.getItem("omni_user");
-        if (!stored) { navigate("/auth"); return; }
+        const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+        const authData = await authRes.json();
+        if (!authData?.user) { navigate("/auth"); return; }
         const res = await fetch("/api/vendors/my-vendor");
         if (!res.ok) { navigate("/vendor/onboarding"); return; }
         const data = await res.json();
@@ -27,8 +28,9 @@ export default function MobileNav({ isAuthenticated, userName, balance }) {
       } catch { navigate("/vendor/onboarding"); }
     } else if (role === "delivery") {
       try {
-        const stored = localStorage.getItem("omni_user");
-        if (!stored) { navigate("/auth"); return; }
+        const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+        const authData = await authRes.json();
+        if (!authData?.user) { navigate("/auth"); return; }
         const res = await fetch("/api/delivery/profile");
         if (res.ok) {
           const data = await res.json();
@@ -63,7 +65,15 @@ export default function MobileNav({ isAuthenticated, userName, balance }) {
                 </button>
               </div>
 
-              {isAuthenticated ? (
+              {authChecking ? (
+                <div className="flex items-center gap-3 mb-6 pb-6 border-b border-white/5">
+                  <div className="w-9 h-9 rounded-full bg-white/5 animate-pulse" />
+                  <div className="space-y-1.5">
+                    <div className="h-3 w-20 bg-white/5 rounded animate-pulse" />
+                    <div className="h-2 w-12 bg-white/5 rounded animate-pulse" />
+                  </div>
+                </div>
+              ) : isAuthenticated ? (
                 <div className="flex items-center gap-3 mb-6 pb-6 border-b border-white/5">
                   <div className="w-9 h-9 rounded-full bg-emerald-500/20 flex items-center justify-center">
                     <span className="text-emerald-400 text-sm font-medium">{userName?.[0]?.toUpperCase() || "U"}</span>
