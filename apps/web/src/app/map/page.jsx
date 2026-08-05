@@ -147,10 +147,16 @@ export default function MapPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        let data;
         const response = await fetch("/api/auth/session", { cache: "no-store" });
-        const data = await response.json();
+        data = await response.json();
+
+        if (!data?.user) {
+          const { syncAuthSession } = await import("@/lib/auth-client");
+          data = await syncAuthSession();
+        }
+
         if (data?.user) {
-          // Session is managed by Neon Auth cookies - no localStorage needed
           setIsAuthenticated(true);
           setUserName(data.user.name || null);
         }

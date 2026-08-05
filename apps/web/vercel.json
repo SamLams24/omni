@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node __create/generate-routes.mjs && npx react-router build",
+  "buildCommand": "rm -f __create/generated-routes.ts && node __create/generate-routes.mjs && npx react-router build",
   "outputDirectory": "build/client",
   "headers": [
     {

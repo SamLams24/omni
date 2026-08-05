@@ -520,13 +520,22 @@ function RouteGuard({ children }: { children: ReactNode }) {
   const isPublic = publicRoutes.some((route) => pathname === route || pathname.startsWith("/auth") || pathname.startsWith("/onboarding"));
 
   useEffect(() => {
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then(r => r.json())
-      .then(data => {
+    const checkAuth = async () => {
+      try {
+        let data;
+        const res = await fetch("/api/auth/session", { cache: "no-store" });
+        data = await res.json();
+
+        if (!data?.user) {
+          const { syncAuthSession } = await import("@/lib/auth-client");
+          data = await syncAuthSession();
+        }
+
         if (data?.user?.id) setAuthed(true);
-        setChecking(false);
-      })
-      .catch(() => setChecking(false));
+      } catch {}
+      setChecking(false);
+    };
+    checkAuth();
   }, []);
 
   if (isPublic) return <>{children}</>;

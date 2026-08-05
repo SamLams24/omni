@@ -14,16 +14,25 @@ export default function GlobalNav() {
   const location = useLocation();
 
   useEffect(() => {
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then(r => r.json())
-      .then(data => {
+    const checkAuth = async () => {
+      try {
+        let data;
+        const res = await fetch("/api/auth/session", { cache: "no-store" });
+        data = await res.json();
+
+        if (!data?.user) {
+          const { syncAuthSession } = await import("@/lib/auth-client");
+          data = await syncAuthSession();
+        }
+
         if (data?.user) {
           setIsAuthenticated(true);
           setUserName(data.user.name);
         }
-      })
-      .catch(() => {})
-      .finally(() => setAuthLoading(false));
+      } catch {}
+      setAuthLoading(false);
+    };
+    checkAuth();
   }, []);
 
   useEffect(() => {
