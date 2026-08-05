@@ -11,10 +11,21 @@
 - ✅ Removed all `localStorage.setItem('omni_user')` calls
 - ✅ Replaced AuthGuard localStorage check with session validation
 - ✅ Added comprehensive security regression tests
+- ✅ Restored reproducible pnpm installation and CI gates
+- ✅ Added versioned database migrations and Playwright smoke tests
+- ✅ Replaced mock wallet deposits with provider-verified FedaPay settlement
+- ✅ Cleared critical production dependency advisories by constraining the
+  Neon Auth chain to patched Better Auth and Vitest versions, while preventing
+  resolution of the vulnerable Next.js peer version
 
 ### Remaining
-- ⚠️ Financial operations still use mock logic (protected by feature flag)
-- ⚠️ No E2E tests for critical user journeys
+- ⚠️ Withdrawal, subscription, and escrow mutations still contain
+  development-only mock logic protected by a production fail-closed flag
+- ⚠️ High and lower-severity transitive dependency advisories remain
+- ⚠️ Existing credentials exposed in Git history must be rotated outside the
+  repository
+- ⚠️ E2E coverage exists for the map shell but not yet for every critical
+  authenticated and financial journey
 
 ## Executive summary
 
