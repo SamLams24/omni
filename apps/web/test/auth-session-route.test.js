@@ -39,7 +39,7 @@ describe('authentication session route', () => {
 
     const response = await GET(
       new Request('https://omni.test/api/auth/session', {
-        headers: { cookie: 'omni.session=validated-token' },
+        headers: { cookie: 'omni_session=validated-token' },
       })
     );
 

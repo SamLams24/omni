@@ -95,6 +95,9 @@ importers:
       downshift:
         specifier: ^9.0.9
         version: 9.3.2(react@18.3.1)
+      fedapay-reactjs:
+        specifier: ^1.1.2
+        version: 1.1.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       framer-motion:
         specifier: ^12.38.0
         version: 12.38.0(@emotion/is-prop-valid@1.4.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -4113,6 +4116,13 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
+
+  fedapay-reactjs@1.1.2:
+    resolution: {integrity: sha512-sqI0IHDdMjrtLmBtEb7t2rnZ/YX7vv1/9XTOp3pt9ryQW3jADa8vaUEZ2LvJ1F2VKf/h5c0ZMhdM0ZSIeuQrcQ==}
+    engines: {node: '>=8', npm: '>=5'}
+    peerDependencies:
+      react: ^18.3.1
+      react-dom: ^18.3.1
 
   fill-range@7.1.1:
     resolution: {integrity: sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg==}
@@ -10310,6 +10320,11 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.4):
     optionalDependencies:
       picomatch: 4.0.4
+
+  fedapay-reactjs@1.1.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    dependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
 
   fill-range@7.1.1:
     dependencies:

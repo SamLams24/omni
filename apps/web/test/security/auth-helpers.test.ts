@@ -1,66 +1,101 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('auth-helpers', () => {
   beforeEach(() => {
-    localStorage.clear();
     vi.resetModules();
   });
 
-  describe('getCurrentUser', () => {
-    it('should return null when no user in localStorage', async () => {
-      const { getCurrentUser } = await import('@/lib/auth-helpers');
-      const user = getCurrentUser();
-      expect(user).toBeNull();
-    });
-
-    it('should return user object when valid user in localStorage', async () => {
-      const mockUser = { id: '123', email: 'test@example.com', name: 'Test' };
-      localStorage.setItem('omni_user', JSON.stringify(mockUser));
-      
-      const { getCurrentUser } = await import('@/lib/auth-helpers');
-      const user = getCurrentUser();
-      expect(user).toEqual(mockUser);
-    });
-
-    it('should return null when localStorage has invalid JSON', async () => {
-      localStorage.setItem('omni_user', 'invalid-json');
-      
-      const { getCurrentUser } = await import('@/lib/auth-helpers');
-      const user = getCurrentUser();
-      expect(user).toBeNull();
-    });
-
-    it('should return null when user object missing id', async () => {
-      localStorage.setItem('omni_user', JSON.stringify({ email: 'test@example.com' }));
-      
-      const { getCurrentUser } = await import('@/lib/auth-helpers');
-      const user = getCurrentUser();
-      expect(user).toBeNull();
-    });
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  describe('isAuthenticated', () => {
-    it('should return false when no user', async () => {
-      const { isAuthenticated } = await import('@/lib/auth-helpers');
-      expect(isAuthenticated()).toBe(false);
-    });
+  it('returns null when the server session has no user', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({ user: null, session: null }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
 
-    it('should return true when valid user exists', async () => {
-      localStorage.setItem('omni_user', JSON.stringify({ id: '123' }));
-      
-      const { isAuthenticated } = await import('@/lib/auth-helpers');
-      expect(isAuthenticated()).toBe(true);
-    });
+    const { getCurrentUser } = await import('@/lib/auth-helpers');
+
+    await expect(getCurrentUser()).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/auth/session',
+      { cache: 'no-store' },
+    );
   });
 
-  describe('clearAuth', () => {
-    it('should remove user from localStorage', async () => {
-      localStorage.setItem('omni_user', JSON.stringify({ id: '123' }));
-      
-      const { clearAuth } = await import('@/lib/auth-helpers');
-      clearAuth();
-      
-      expect(localStorage.getItem('omni_user')).toBeNull();
-    });
+  it('returns the user validated by the server session', async () => {
+    const user = { id: '123', email: 'test@example.com', name: 'Test' };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(Response.json({ user, session: { id: 's1' } })),
+    );
+
+    const { getCurrentUser } = await import('@/lib/auth-helpers');
+
+    await expect(getCurrentUser()).resolves.toEqual(user);
+  });
+
+  it('does not use localStorage as an identity fallback', async () => {
+    localStorage.setItem(
+      'omni_user',
+      JSON.stringify({ id: 'client-controlled-user' }),
+    );
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(Response.json({ user: null, session: null })),
+    );
+
+    const { getCurrentUser } = await import('@/lib/auth-helpers');
+
+    await expect(getCurrentUser()).resolves.toBeNull();
+  });
+
+  it('returns null when the session request fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+
+    const { getCurrentUser } = await import('@/lib/auth-helpers');
+
+    await expect(getCurrentUser()).resolves.toBeNull();
+  });
+
+  it('caches a validated user for the configured TTL', async () => {
+    const user = { id: '123' };
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ user }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { getCurrentUser } = await import('@/lib/auth-helpers');
+
+    await expect(getCurrentUser()).resolves.toEqual(user);
+    await expect(getCurrentUser()).resolves.toEqual(user);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('invalidates the cached user explicitly', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ user: { id: '123' } }))
+      .mockResolvedValueOnce(Response.json({ user: null }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { getCurrentUser, invalidateUserCache } = await import(
+      '@/lib/auth-helpers'
+    );
+
+    await expect(getCurrentUser()).resolves.toEqual({ id: '123' });
+    invalidateUserCache();
+    await expect(getCurrentUser()).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('derives authentication state from the server-validated user', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(Response.json({ user: { id: '123' } })),
+    );
+
+    const { isAuthenticated } = await import('@/lib/auth-helpers');
+
+    await expect(isAuthenticated()).resolves.toBe(true);
   });
 });

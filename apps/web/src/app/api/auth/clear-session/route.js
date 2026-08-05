@@ -6,8 +6,7 @@ export async function POST() {
       'omni_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0'
     );
     return response;
-  } catch (error) {
-    console.error('[Session] Clear session error:', error);
+  } catch {
     return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
