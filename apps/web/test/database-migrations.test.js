@@ -20,6 +20,7 @@ describe('database migrations', () => {
       '0001_baseline.sql',
       '0002_product_timestamps.sql',
       '0003_transactions_reference_unique.sql',
+      '0004_wallet_deposit_intents.sql',
     ]);
     expect(migrations[0].checksum).toBe(
       checksumMigration(migrations[0].sql),

@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 
 export default function FedaPayWidget({
   amount,
+  transactionId,
   public_key,
   onComplete,
   onCancel,
@@ -48,7 +49,8 @@ export default function FedaPayWidget({
   const options = {
     public_key,
     transaction: {
-      amount: amount, // Amount in FCFA (no conversion needed)
+      id: Number(transactionId),
+      amount,
       description: `Recharge portefeuille Omni - ${amount} FCFA`,
     },
     currency: {

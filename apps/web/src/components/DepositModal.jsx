@@ -9,6 +9,32 @@ export default function DepositModal({ isOpen, onClose, onDone }) {
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [intent, setIntent] = useState(null);
+  const [confirmedAmount, setConfirmedAmount] = useState(null);
+
+  const createDepositIntent = async () => {
+    const parsedAmount = Number(amount);
+    if (!Number.isSafeInteger(parsedAmount) || parsedAmount <= 0) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/wallet/deposit-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: parsedAmount }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        toast(data.error || "Impossible d'initialiser le paiement");
+        return;
+      }
+      setIntent(data);
+    } catch {
+      toast("Impossible d'initialiser le paiement");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleFedaPayComplete = async (transactionId) => {
     setLoading(true);
@@ -16,17 +42,20 @@ export default function DepositModal({ isOpen, onClose, onDone }) {
       const res = await fetch("/api/wallet/verify-fedapay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transactionId, amount: parseFloat(amount) }),
+        body: JSON.stringify({ transactionId }),
       });
       const data = await res.json();
       if (data.ok) {
+        setConfirmedAmount(data.amount);
         setSuccess(true);
-        toast(`Dépôt de ${parseFloat(amount).toLocaleString()} FCFA effectué !`);
+        toast(`Dépôt de ${Number(data.amount).toLocaleString()} FCFA effectué !`);
         setTimeout(() => {
           onDone?.();
           onClose();
           setSuccess(false);
           setAmount("");
+          setIntent(null);
+          setConfirmedAmount(null);
         }, 1500);
       } else {
         toast(data.error || "Erreur lors de la vérification du paiement");
@@ -52,7 +81,7 @@ export default function DepositModal({ isOpen, onClose, onDone }) {
             <Check size={24} className="text-emerald-400" />
           </div>
           <h3 className="text-sm font-medium text-white mb-2">Paiement réussi !</h3>
-          <p className="text-white/40 text-xs">{parseFloat(amount).toLocaleString()} FCFA ajoutés à votre portefeuille</p>
+          <p className="text-white/40 text-xs">{Number(confirmedAmount).toLocaleString()} FCFA ajoutés à votre portefeuille</p>
         </div>
       </div>
     );
@@ -66,24 +95,32 @@ export default function DepositModal({ isOpen, onClose, onDone }) {
           <button onClick={onClose} className="text-white/30 hover:text-white/60"><X size={16} /></button>
         </div>
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 mb-4">
-          <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
-            placeholder="Montant (FCFA)" min="0"
+          <input type="number" value={amount} onChange={e => {
+            setAmount(e.target.value);
+            setIntent(null);
+          }}
+            placeholder="Montant (FCFA)" min="100" step="1" disabled={loading}
             className="w-full bg-transparent outline-none text-white text-sm placeholder:text-white/20"
           />
         </div>
         <div className="space-y-2">
-          {amount && parseFloat(amount) > 0 && FEDAPAY_PUBLIC_KEY ? (
+          {intent && FEDAPAY_PUBLIC_KEY ? (
             <FedaPayWidget
-              amount={parseFloat(amount)}
+              amount={intent.amount}
+              transactionId={intent.transactionId}
               public_key={FEDAPAY_PUBLIC_KEY}
               onComplete={handleFedaPayComplete}
               onCancel={handleFedaPayCancel}
             />
           ) : (
-            <button disabled={!amount || loading}
-              className="w-full py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium opacity-30 flex items-center justify-center gap-2"
+            <button
+              type="button"
+              onClick={createDepositIntent}
+              disabled={!amount || loading || !FEDAPAY_PUBLIC_KEY}
+              className="w-full py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium disabled:opacity-30 flex items-center justify-center gap-2"
             >
-              Mobile Money
+              {loading ? <Loader2 size={12} className="animate-spin" /> : null}
+              Continuer avec Mobile Money
             </button>
           )}
         </div>
