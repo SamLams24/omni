@@ -7,7 +7,7 @@ const dbUrl = process.env.DATABASE_URL;
 const sql = dbUrl ? neon(dbUrl) : null;
 
 function getAuthUrl() {
-  return process.env.NEON_AUTH_URL?.replace(/\/+$/, '') || null;
+  return (process.env.NEON_AUTH_URL || process.env.VITE_NEON_AUTH_URL || '').replace(/\/+$/, '') || null;
 }
 
 async function ensureAppUser(authUser) {

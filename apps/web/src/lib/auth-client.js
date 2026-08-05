@@ -3,7 +3,7 @@ import { createAuthClient } from '@neondatabase/neon-js/auth';
 let authClient;
 
 export function getClientAuthUrl() {
-  return process.env.NEXT_PUBLIC_NEON_AUTH_URL?.replace(/\/+$/, '') || null;
+  return (process.env.NEXT_PUBLIC_NEON_AUTH_URL || process.env.VITE_NEON_AUTH_URL || '').replace(/\/+$/, '') || null;
 }
 
 function getAuthClient() {

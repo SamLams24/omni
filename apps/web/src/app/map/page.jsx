@@ -147,7 +147,7 @@ export default function MapPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch("/api/auth/session");
+        const response = await fetch("/api/auth/session", { cache: "no-store" });
         const data = await response.json();
         if (data?.user) {
           // Session is managed by Neon Auth cookies - no localStorage needed
