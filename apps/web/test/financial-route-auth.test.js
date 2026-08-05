@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { POST as withdraw } from "../src/app/api/wallet/withdraw/route.js";
 
 const financialRouteFiles = [
   "../src/app/api/escrow/dispute/route.js",
@@ -11,7 +12,6 @@ const financialRouteFiles = [
   "../src/app/api/wallet/balance/route.js",
   "../src/app/api/wallet/deposit-intent/route.js",
   "../src/app/api/wallet/verify-fedapay/route.js",
-  "../src/app/api/wallet/withdraw/route.js",
 ];
 
 const simulatedFinancialMutationFiles = [
@@ -20,7 +20,6 @@ const simulatedFinancialMutationFiles = [
   "../src/app/api/escrow/release/route.js",
   "../src/app/api/subscription/cancel/route.js",
   "../src/app/api/subscriptions/upgrade/route.js",
-  "../src/app/api/wallet/withdraw/route.js",
 ];
 
 const financialClientFiles = [
@@ -66,6 +65,25 @@ describe("financial route authorization", () => {
 
     expect(source).toContain('code: "FEATURE_DISABLED"');
     expect(source).not.toContain("INSERT INTO wallets");
+  });
+
+  it("removes the simulated withdrawal mutation", async () => {
+    const route = readSource("../src/app/api/wallet/withdraw/route.js");
+    const walletPage = readSource("../src/app/wallet/page.jsx");
+    const response = await withdraw();
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "WITHDRAWALS_DISABLED",
+    });
+    expect(route).toContain('code: "WITHDRAWALS_DISABLED"');
+    expect(route).toContain('"Cache-Control": "no-store"');
+    expect(route).not.toContain("UPDATE wallets");
+    expect(route).not.toContain("INSERT INTO transactions");
+    expect(route).not.toContain("ENABLE_MOCK_FINANCIAL_FLOWS");
+    expect(walletPage).not.toContain('fetch("/api/wallet/withdraw"');
+    expect(walletPage).not.toContain("Retirer");
   });
 
   it("settles only server-created FedaPay deposit intents", () => {

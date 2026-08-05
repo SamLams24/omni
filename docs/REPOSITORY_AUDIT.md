@@ -14,6 +14,8 @@
 - ✅ Restored reproducible pnpm installation and CI gates
 - ✅ Added versioned database migrations and Playwright smoke tests
 - ✅ Replaced mock wallet deposits with provider-verified FedaPay settlement
+- ✅ Removed the simulated withdrawal debit and its misleading client action;
+  withdrawals now fail closed until a payout provider is integrated
 - ✅ Cleared critical production dependency advisories by constraining the
   Neon Auth chain to patched Better Auth and Vitest versions, while preventing
   resolution of the vulnerable Next.js peer version
@@ -22,8 +24,8 @@
   CSS, build, and glob-expansion dependency families
 
 ### Remaining
-- ⚠️ Withdrawal, subscription, and escrow mutations still contain
-  development-only mock logic protected by a production fail-closed flag
+- ⚠️ Subscription and escrow mutations still contain development-only logic
+  protected by a production fail-closed flag
 - ⚠️ One high-severity React Router advisory remains. It affects the optional
   RSC mode, which Omni does not enable; its upstream fix requires the breaking
   React Router 8 migration and must be handled as a dedicated upgrade
