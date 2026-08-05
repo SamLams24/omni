@@ -1,4 +1,6 @@
 import { serve } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
+import { Hono } from "hono";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -21,12 +23,16 @@ if (typeof serverBuild.default !== "function") {
 	throw new TypeError("The Omni server build must export a fetch handler");
 }
 
+const app = new Hono();
+app.use("*", serveStatic({ root: "./build/client" }));
+app.all("*", (context) => serverBuild.default(context.req.raw));
+
 const port = Number.parseInt(process.env.PORT ?? "4173", 10);
 const hostname = process.env.HOST ?? "127.0.0.1";
 
 serve(
 	{
-		fetch: serverBuild.default,
+		fetch: app.fetch,
 		hostname,
 		port,
 	},
