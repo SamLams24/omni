@@ -17,11 +17,16 @@
 - ✅ Cleared critical production dependency advisories by constraining the
   Neon Auth chain to patched Better Auth and Vitest versions, while preventing
   resolution of the vulnerable Next.js peer version
+- ✅ Reduced high-severity dependency advisories from 14 to the single
+  React Router RSC advisory by patching the router, HTTP runtime, WebSocket,
+  CSS, build, and glob-expansion dependency families
 
 ### Remaining
 - ⚠️ Withdrawal, subscription, and escrow mutations still contain
   development-only mock logic protected by a production fail-closed flag
-- ⚠️ High and lower-severity transitive dependency advisories remain
+- ⚠️ One high-severity React Router advisory remains. It affects the optional
+  RSC mode, which Omni does not enable; its upstream fix requires the breaking
+  React Router 8 migration and must be handled as a dedicated upgrade
 - ⚠️ Existing credentials exposed in Git history must be rotated outside the
   repository
 - ⚠️ E2E coverage exists for the map shell but not yet for every critical
