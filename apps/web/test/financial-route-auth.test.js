@@ -73,20 +73,35 @@ describe("financial route authorization", () => {
       "../src/app/api/wallet/deposit-intent/route.js",
     );
     const verify = readSource("../src/app/api/wallet/verify-fedapay/route.js");
+    const settlement = readSource("../src/lib/wallet-deposits.js");
 
     expect(createIntent).toContain("omni_deposit_intent_id");
     expect(createIntent).toContain('currency: { iso: "XOF" }');
-    expect(verify).toContain('tx.status !== "approved"');
-    expect(verify).toContain("Transaction ownership mismatch");
-    expect(verify).toContain("ON CONFLICT (user_id) DO NOTHING");
-    expect(verify).toContain("claimed_intent AS");
-    expect(verify).toContain("recorded_tx AS");
-    expect(verify).toContain("credited_wallet AS");
-    expect(verify).toContain(
+    expect(verify).toContain("settleFedaPayDeposit");
+    expect(settlement).toContain('transaction.status !== "approved"');
+    expect(settlement).toContain("Transaction ownership mismatch");
+    expect(settlement).toContain("ON CONFLICT (user_id) DO NOTHING");
+    expect(settlement).toContain("claimed_intent AS");
+    expect(settlement).toContain("recorded_tx AS");
+    expect(settlement).toContain("credited_wallet AS");
+    expect(settlement).toContain(
       "ON CONFLICT (reference) WHERE reference IS NOT NULL DO NOTHING",
     );
-    expect(verify).not.toContain("completed");
-    expect(verify).not.toContain('"paid"');
+    expect(settlement).not.toContain("completed");
+    expect(settlement).not.toContain('"paid"');
+  });
+
+  it("authenticates FedaPay webhooks before reusing deposit settlement", () => {
+    const webhook = readSource(
+      "../src/app/api/webhooks/fedapay/route.js",
+    );
+
+    expect(webhook).toContain("request.text()");
+    expect(webhook).toContain('request.headers.get("x-fedapay-signature")');
+    expect(webhook).toContain("constructFedaPayWebhookEvent");
+    expect(webhook).toContain("settleFedaPayDeposit");
+    expect(webhook).not.toContain("request.json()");
+    expect(webhook).not.toContain("getAuthenticatedUser");
   });
 
   it("restricts escrow actions to cart participants", () => {
