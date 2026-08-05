@@ -74,6 +74,7 @@ export default defineConfig({
       'npm:stripe': 'stripe',
       stripe: path.resolve(__dirname, './src/__create/stripe'),
       '@': path.resolve(__dirname, 'src'),
+      'next/headers': path.resolve(__dirname, './src/__create/next/headers.js'),
     },
     dedupe: ['react', 'react-dom'],
   },

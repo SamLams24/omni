@@ -33,7 +33,6 @@ export async function getServerSession(request) {
   const cookie = request.headers.get('cookie');
 
   if (!authUrl || !cookie) {
-    console.log('[Session] Missing authUrl or cookie:', { hasAuthUrl: !!authUrl, hasCookie: !!cookie });
     return null;
   }
 
@@ -48,13 +47,11 @@ export async function getServerSession(request) {
     });
 
     if (!response.ok) {
-      console.log('[Session] Neon Auth returned:', response.status);
       return null;
     }
 
     const data = await response.json();
     if (!data?.user?.id) {
-      console.log('[Session] No user in response:', JSON.stringify(data).slice(0, 200));
       return null;
     }
 
@@ -65,8 +62,7 @@ export async function getServerSession(request) {
         session: data.session || {},
       },
     };
-  } catch (e) {
-    console.error('[Session] Error:', e.message);
+  } catch {
     return null;
   }
 }
