@@ -21,7 +21,7 @@ export default defineConfig({
     target: 'node',
   },
   // Keep them available via import.meta.env.NEXT_PUBLIC_*
-  envPrefix: 'NEXT_PUBLIC_',
+  envPrefix: ['NEXT_PUBLIC_', 'VITE_'],
   optimizeDeps: {
     // Explicitly include fast-glob, since it gets dynamically imported and we
     // don't want that to cause a re-bundle.
