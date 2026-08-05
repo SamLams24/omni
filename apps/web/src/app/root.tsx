@@ -519,24 +519,37 @@ function RouteGuard({ children }: { children: ReactNode }) {
   const publicRoutes = ["/map", "/auth", "/", "/onboarding"];
   const isPublic = publicRoutes.some((route) => pathname === route || pathname.startsWith("/auth") || pathname.startsWith("/onboarding"));
 
+  const checkAuth = async () => {
+    try {
+      let data;
+      const res = await fetch("/api/auth/session", { cache: "no-store" });
+      data = await res.json();
+      console.log('[RouteGuard] session check:', data?.user ? `user=${data.user.id}` : 'null');
+
+      if (!data?.user) {
+        console.log('[RouteGuard] No user, trying syncAuthSession...');
+        const { syncAuthSession } = await import("@/lib/auth-client");
+        data = await syncAuthSession();
+        console.log('[RouteGuard] syncAuthSession result:', data?.user ? `user=${data.user.id}` : 'null');
+      }
+
+      if (data?.user?.id) setAuthed(true);
+    } catch (e) {
+      console.error('[RouteGuard] checkAuth error:', e);
+    }
+    setChecking(false);
+  };
+
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        let data;
-        const res = await fetch("/api/auth/session", { cache: "no-store" });
-        data = await res.json();
-
-        if (!data?.user) {
-          const { syncAuthSession } = await import("@/lib/auth-client");
-          data = await syncAuthSession();
-        }
-
-        if (data?.user?.id) setAuthed(true);
-      } catch {}
-      setChecking(false);
-    };
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (!isPublic && !authed && !checking) {
+      console.log('[RouteGuard] Navigated to protected route, re-checking auth...');
+      checkAuth();
+    }
+  }, [pathname, isPublic]);
 
   if (isPublic) return <>{children}</>;
 
