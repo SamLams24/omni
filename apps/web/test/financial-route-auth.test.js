@@ -1,14 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { POST as cancelSubscription } from "../src/app/api/subscription/cancel/route.js";
+import { POST as upgradeSubscription } from "../src/app/api/subscriptions/upgrade/route.js";
 import { POST as withdraw } from "../src/app/api/wallet/withdraw/route.js";
 
 const financialRouteFiles = [
   "../src/app/api/escrow/dispute/route.js",
   "../src/app/api/escrow/refund/route.js",
   "../src/app/api/escrow/release/route.js",
-  "../src/app/api/subscription/cancel/route.js",
   "../src/app/api/subscriptions/status/route.js",
-  "../src/app/api/subscriptions/upgrade/route.js",
   "../src/app/api/wallet/balance/route.js",
   "../src/app/api/wallet/deposit-intent/route.js",
   "../src/app/api/wallet/verify-fedapay/route.js",
@@ -18,8 +18,6 @@ const simulatedFinancialMutationFiles = [
   "../src/app/api/escrow/dispute/route.js",
   "../src/app/api/escrow/refund/route.js",
   "../src/app/api/escrow/release/route.js",
-  "../src/app/api/subscription/cancel/route.js",
-  "../src/app/api/subscriptions/upgrade/route.js",
 ];
 
 const financialClientFiles = [
@@ -86,6 +84,38 @@ describe("financial route authorization", () => {
     expect(walletPage).not.toContain("Retirer");
   });
 
+  it.each([
+    ["upgrade", upgradeSubscription],
+    ["cancel", cancelSubscription],
+  ])("keeps subscription %s mutations unavailable", async (_, handler) => {
+    const response = await handler();
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "SUBSCRIPTIONS_DISABLED",
+    });
+  });
+
+  it("removes local subscription billing and activation", () => {
+    const upgrade = readSource(
+      "../src/app/api/subscriptions/upgrade/route.js",
+    );
+    const cancel = readSource("../src/app/api/subscription/cancel/route.js");
+    const page = readSource("../src/app/subscriptions/page.jsx");
+
+    for (const route of [upgrade, cancel]) {
+      expect(route).not.toContain("UPDATE wallets");
+      expect(route).not.toContain("UPDATE users");
+      expect(route).not.toContain("INSERT INTO subscriptions");
+      expect(route).not.toContain("ENABLE_MOCK_FINANCIAL_FLOWS");
+    }
+    expect(page).not.toContain('fetch("/api/subscriptions/upgrade"');
+    expect(page).not.toContain("5 000 FCFA");
+    expect(page).not.toContain("1 000 FCFA");
+    expect(page).toContain("Bientôt disponible");
+  });
+
   it("settles only server-created FedaPay deposit intents", () => {
     const createIntent = readSource(
       "../src/app/api/wallet/deposit-intent/route.js",
@@ -131,15 +161,6 @@ describe("financial route authorization", () => {
     expect(dispute).toContain("v.user_id = ${userId}");
     expect(refund).toContain("v.user_id = ${userId}");
     expect(release).toContain("c.buyer_id = ${userId}");
-  });
-
-  it("charges subscriptions before activating their tier", () => {
-    const source = readSource("../src/app/api/subscriptions/upgrade/route.js");
-
-    expect(source).toContain("WITH debited AS");
-    expect(source).toContain("balance >= ${fee}");
-    expect(source).toContain("EXISTS (SELECT 1 FROM subscribed)");
-    expect(source).not.toContain("INSERT INTO users");
   });
 
   it("stores the vendor id, not the facility id, in escrow", () => {

@@ -77,8 +77,9 @@ without a verified provider transaction and without idempotency. No simulated
 deposit or withdrawal balance mutation remains reachable.
 
 **Remaining work:** Integrate and verify a payout provider before enabling
-withdrawals. Subscription and escrow flows remain isolated behind their
-non-production feature flag.
+withdrawals. Local subscription billing and activation have also been removed;
+the module requires a dedicated, provider-verified billing design. Escrow
+remains isolated behind its non-production feature flag.
 
 ---
 
