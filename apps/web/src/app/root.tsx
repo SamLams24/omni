@@ -530,25 +530,18 @@ function RouteGuard({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    const checkAuth = async () => {
+    const check = async () => {
       try {
-        const res = await fetch("/api/auth/session", { cache: "no-store" });
-        const data = await res.json();
+        const { getSession } = await import("@/lib/auth-client");
+        const session = await getSession();
         if (cancelled) return;
-        if (data?.user) {
-          setAuthed(true);
-        } else {
-          try {
-            const { syncAuthSession } = await import("@/lib/auth-client");
-            const synced = await syncAuthSession();
-            if (cancelled) return;
-            if (synced?.user) setAuthed(true);
-          } catch {}
-        }
-      } catch {}
+        setAuthed(!!session?.user);
+      } catch {
+        if (!cancelled) setAuthed(false);
+      }
       if (!cancelled) setChecking(false);
     };
-    checkAuth();
+    check();
     return () => { cancelled = true; };
   }, [pathname]);
 

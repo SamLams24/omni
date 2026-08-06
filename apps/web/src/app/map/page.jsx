@@ -147,24 +147,14 @@ export default function MapPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        let data;
-        const response = await fetch("/api/auth/session", { cache: "no-store" });
-        data = await response.json();
-
-        if (!data?.user) {
-          const { syncAuthSession } = await import("@/lib/auth-client");
-          data = await syncAuthSession();
-        }
-
-        if (data?.user) {
+        const { getSession } = await import("@/lib/auth-client");
+        const session = await getSession();
+        if (session?.user) {
           setIsAuthenticated(true);
-          setUserName(data.user.name || null);
+          setUserName(session.user.name || null);
         }
-      } catch (error) {
-        console.error("Auth check failed:", error);
-      } finally {
-        setAuthChecking(false);
-      }
+      } catch {}
+      setAuthChecking(false);
     };
     checkAuth();
   }, []);
