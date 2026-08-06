@@ -1,6 +1,5 @@
 import sql from "@/app/api/utils/sql";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
 import { promoteNextAvailabilityGroup } from "@/domains/cart/queue";
 import { buildCartResponse } from "@/domains/cart/response";
 
@@ -37,6 +36,15 @@ export async function POST(request) {
     const cart = carts[0];
     if (cart.status !== "pending") {
       return Response.json({ error: "Cart has already been responded to" }, { status: 409 });
+    }
+    if (cart.payment_method !== "cash") {
+      return Response.json(
+        {
+          error: "Le paiement escrow n’est pas disponible.",
+          code: "ESCROW_DISABLED",
+        },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
     }
 
     const cartRequests = await sql`
@@ -85,15 +93,7 @@ export async function POST(request) {
       return Response.json({ error: error.message }, { status: 400 });
     }
 
-    const isEscrow = cart.payment_method === "escrow";
-    if (isEscrow) {
-      const disabled = requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS");
-      if (disabled) return disabled;
-    }
-
-    const { responses, cartStatus, total, fee } = responsePlan;
-    const requiresEscrowHold = isEscrow && cartStatus !== "denied";
-    const amountToHold = total + fee;
+    const { responses, cartStatus, total } = responsePlan;
     const responseJson = JSON.stringify(responses);
 
     const processed = await sql`
@@ -114,16 +114,6 @@ export async function POST(request) {
             SELECT COUNT(*) FROM availability_requests ar
             WHERE ar.cart_id = c.id AND ar.status = 'pending'
           ) = ${responses.length}
-          AND NOT EXISTS (
-            SELECT 1 FROM escrow_holds eh WHERE eh.cart_id = c.id
-          )
-          AND (
-            ${!requiresEscrowHold}
-            OR EXISTS (
-              SELECT 1 FROM wallets w
-              WHERE w.user_id = c.buyer_id AND w.balance >= ${amountToHold}
-            )
-          )
         RETURNING c.id
       ),
       updated_requests AS (
@@ -149,59 +139,17 @@ export async function POST(request) {
           AND status = 'awaiting_confirmation'
           AND EXISTS (SELECT 1 FROM transitioned)
         RETURNING id
-      ),
-      debited AS (
-        UPDATE wallets w
-        SET balance = w.balance - ${amountToHold},
-            updated_at = CURRENT_TIMESTAMP
-        WHERE w.user_id = ${cart.buyer_id}
-          AND ${requiresEscrowHold}
-          AND w.balance >= ${amountToHold}
-          AND (SELECT COUNT(*) FROM updated_requests) = ${responses.length}
-        RETURNING w.id
-      ),
-      held AS (
-        INSERT INTO escrow_holds (cart_id, buyer_id, vendor_id, amount, fee)
-        SELECT ${cartId}, ${cart.buyer_id}, ${cart.vendor_id}, ${total}, ${fee}
-        FROM debited
-        RETURNING id
-      ),
-      hold_transaction AS (
-        INSERT INTO transactions (wallet_id, type, amount, reference)
-        SELECT id, 'escrow_hold', ${total}, ${`Hold for cart ${cartId}`}
-        FROM debited
-        RETURNING id
-      ),
-      fee_transaction AS (
-        INSERT INTO transactions (wallet_id, type, amount, reference)
-        SELECT id, 'fee', ${fee}, ${`Escrow fee 1% for cart ${cartId}`}
-        FROM debited
-        RETURNING id
       )
       SELECT
         transitioned.id,
-        (SELECT COUNT(*) FROM updated_requests)::int AS updated_count,
-        CASE
-          WHEN ${requiresEscrowHold} THEN EXISTS (SELECT 1 FROM held)
-          ELSE true
-        END AS financial_complete
+        (SELECT COUNT(*) FROM updated_requests)::int AS updated_count
       FROM transitioned
     `;
 
     if (
       processed.length === 0
       || Number(processed[0].updated_count) !== responses.length
-      || !processed[0].financial_complete
     ) {
-      const wallet = requiresEscrowHold
-        ? await sql`SELECT balance FROM wallets WHERE user_id = ${cart.buyer_id}`
-        : [];
-      if (requiresEscrowHold && Number(wallet[0]?.balance || 0) < amountToHold) {
-        return Response.json(
-          { error: "Insufficient balance", required: amountToHold },
-          { status: 402 },
-        );
-      }
       return Response.json(
         { error: "Cart was already processed or changed" },
         { status: 409 },
@@ -224,7 +172,6 @@ export async function POST(request) {
       success: true,
       status: cartStatus,
       total,
-      fee: requiresEscrowHold ? fee : 0,
     });
   } catch (error) {
     console.error("Error responding to cart:", error);

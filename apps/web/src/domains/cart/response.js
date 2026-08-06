@@ -79,6 +79,5 @@ export function buildCartResponse(requests, { confirmAll, items }) {
     responses,
     cartStatus,
     total,
-    fee: Math.round(total * 0.01),
   };
 }

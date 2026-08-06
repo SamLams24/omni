@@ -62,9 +62,9 @@ describe("cart creation input", () => {
       .toThrow(message);
   });
 
-  it("rejects unsupported payment methods", () => {
+  it.each(["card", "escrow"])("rejects unsupported payment method %s", (paymentMethod) => {
     expect(() =>
-      parseCartCreationInput({ ...validCart, paymentMethod: "card" }),
+      parseCartCreationInput({ ...validCart, paymentMethod }),
     ).toThrow("Invalid payment method");
   });
 

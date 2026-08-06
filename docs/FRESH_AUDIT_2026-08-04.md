@@ -78,8 +78,10 @@ deposit or withdrawal balance mutation remains reachable.
 
 **Remaining work:** Integrate and verify a payout provider before enabling
 withdrawals. Local subscription billing and activation have also been removed;
-the module requires a dedicated, provider-verified billing design. Escrow
-remains isolated behind its non-production feature flag.
+the module requires a dedicated, provider-verified billing design. Simulated
+escrow mutations and their client-side payment choice have been removed. The
+development-only delivery settlement still requires a real provider-backed
+design before it can be enabled.
 
 ---
 
