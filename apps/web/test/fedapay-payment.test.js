@@ -12,12 +12,15 @@ vi.mock("@/lib/auth", () => ({
 
 import sql from "@/app/api/utils/sql";
 import { POST as createDepositIntent } from "@/app/api/wallet/deposit-intent/route";
+import { GET as getDepositStatus } from "@/app/api/wallet/fedapay-status/route";
 import { POST as verifyDeposit } from "@/app/api/wallet/verify-fedapay/route";
 import { getAuthenticatedUser } from "@/lib/auth";
 import {
   FedaPayApiError,
   getFedaPayConfig,
+  getFedaPayPaymentState,
   isValidFedaPayTransactionId,
+  normalizeTogoPhoneNumber,
   retrieveFedaPayTransaction,
 } from "@/lib/fedapay";
 
@@ -30,6 +33,24 @@ function postRequest(path, body) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+function depositRequest(amount, phoneNumber = "+228 90 00 00 00") {
+  return postRequest("/api/wallet/deposit-intent", { amount, phoneNumber });
+}
+
+function pendingTransaction(overrides = {}) {
+  return {
+    id: 42001,
+    amount: 5000,
+    status: "pending",
+    generateToken: vi.fn().mockResolvedValue({
+      token: "payment-token",
+      url: "https://process.fedapay.com/payment-token",
+    }),
+    sendNowWithToken: vi.fn().mockResolvedValue({ message: "success" }),
+    ...overrides,
+  };
 }
 
 function approvedTransaction(overrides = {}) {
@@ -90,6 +111,15 @@ describe("FedaPay server client", () => {
     expect(isValidFedaPayTransactionId(42001)).toBe(false);
   });
 
+  it("normalizes Togo phone numbers and maps provider statuses", () => {
+    expect(normalizeTogoPhoneNumber("+228 90-00-00-00")).toBe("90000000");
+    expect(normalizeTogoPhoneNumber("00228 90 00 00 00")).toBe("90000000");
+    expect(normalizeTogoPhoneNumber("1234")).toBeNull();
+    expect(getFedaPayPaymentState("approved")).toBe("approved");
+    expect(getFedaPayPaymentState("declined")).toBe("failed");
+    expect(getFedaPayPaymentState("pending")).toBe("pending");
+  });
+
   it("configures the official SDK without exposing provider errors", async () => {
     const setApiKey = vi.spyOn(FedaPay, "setApiKey");
     const setEnvironment = vi.spyOn(FedaPay, "setEnvironment");
@@ -111,7 +141,7 @@ describe("FedaPay deposit intent", () => {
     getAuthenticatedUser.mockResolvedValue(null);
 
     const response = await createDepositIntent(
-      postRequest("/api/wallet/deposit-intent", { amount: 5000 }),
+      depositRequest(5000),
     );
 
     expect(response.status).toBe(401);
@@ -122,7 +152,7 @@ describe("FedaPay deposit intent", () => {
     "rejects an invalid amount: %s",
     async (amount) => {
       const response = await createDepositIntent(
-        postRequest("/api/wallet/deposit-intent", { amount }),
+        depositRequest(amount),
       );
 
       expect(response.status).toBe(400);
@@ -130,19 +160,21 @@ describe("FedaPay deposit intent", () => {
     },
   );
 
-  it("creates the provider transaction on the server and binds its metadata", async () => {
+  it("rejects an invalid Togo Mobile Money number", async () => {
+    const response = await createDepositIntent(depositRequest(5000, "1234"));
+
+    expect(response.status).toBe(400);
+    expect(sql).not.toHaveBeenCalled();
+  });
+
+  it("creates the transaction and sends the Moov Togo push first", async () => {
     sql
       .mockResolvedValueOnce([{ id: intentId }])
       .mockResolvedValueOnce([{ id: intentId }]);
-    const createTransaction = vi.spyOn(Transaction, "create").mockResolvedValue({
-      id: 42001,
-      amount: 5000,
-      status: "pending",
-    });
+    const transaction = pendingTransaction();
+    const createTransaction = vi.spyOn(Transaction, "create").mockResolvedValue(transaction);
 
-    const response = await createDepositIntent(
-      postRequest("/api/wallet/deposit-intent", { amount: 5000 }),
-    );
+    const response = await createDepositIntent(depositRequest(5000));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -151,13 +183,43 @@ describe("FedaPay deposit intent", () => {
       transactionId: "42001",
       amount: 5000,
       currency: "XOF",
+      flow: "mobile_money_push",
+      checkoutUrl: "https://process.fedapay.com/payment-token",
     });
     expect(createTransaction).toHaveBeenCalledWith({
       amount: 5000,
       currency: { iso: "XOF" },
       description: "Recharge portefeuille Omni - 5000 FCFA",
+      callback_url: "https://omni.test/wallet?payment=fedapay",
       custom_metadata: { omni_deposit_intent_id: intentId },
     });
+    expect(transaction.generateToken).toHaveBeenCalledOnce();
+    expect(transaction.sendNowWithToken).toHaveBeenCalledWith(
+      "moov_tg",
+      "payment-token",
+      { phone_number: { number: "90000000", country: "tg" } },
+    );
+  });
+
+  it("falls back to the hosted page on a push error without creating a second transaction", async () => {
+    sql
+      .mockResolvedValueOnce([{ id: intentId }])
+      .mockResolvedValueOnce([{ id: intentId }]);
+    const transaction = pendingTransaction({
+      sendNowWithToken: vi.fn().mockRejectedValue(new Error("operator unavailable")),
+    });
+    const createTransaction = vi.spyOn(Transaction, "create").mockResolvedValue(transaction);
+
+    const response = await createDepositIntent(depositRequest(5000));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      transactionId: "42001",
+      flow: "hosted_checkout",
+      checkoutUrl: "https://process.fedapay.com/payment-token",
+    });
+    expect(createTransaction).toHaveBeenCalledOnce();
   });
 
   it("rate-limits provider transaction creation through the database", async () => {
@@ -165,12 +227,49 @@ describe("FedaPay deposit intent", () => {
     const createTransaction = vi.spyOn(Transaction, "create");
 
     const response = await createDepositIntent(
-      postRequest("/api/wallet/deposit-intent", { amount: 5000 }),
+      depositRequest(5000),
     );
 
     expect(response.status).toBe(429);
     expect(createTransaction).not.toHaveBeenCalled();
     expect(sql.mock.calls[0][0].join(" ")).toContain("INTERVAL '1 minute'");
+  });
+});
+
+describe("FedaPay push status", () => {
+  function statusRequest(transactionId = "42001") {
+    return new Request(
+      `https://omni.test/api/wallet/fedapay-status?transactionId=${transactionId}`,
+    );
+  }
+
+  it("does not query a transaction that is not bound to the user", async () => {
+    sql.mockResolvedValueOnce([]);
+    const retrieveTransaction = vi.spyOn(Transaction, "retrieve");
+
+    const response = await getDepositStatus(statusRequest());
+
+    expect(response.status).toBe(404);
+    expect(retrieveTransaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["pending", "pending"],
+    ["approved", "approved"],
+    ["declined", "failed"],
+    ["canceled", "failed"],
+    ["expired", "failed"],
+  ])("maps provider status %s to %s", async (providerStatus, paymentState) => {
+    sql.mockResolvedValueOnce([{ id: intentId }]);
+    vi.spyOn(Transaction, "retrieve").mockResolvedValue({
+      id: 42001,
+      status: providerStatus,
+    });
+
+    const response = await getDepositStatus(statusRequest());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ ok: true, paymentState });
   });
 });
 

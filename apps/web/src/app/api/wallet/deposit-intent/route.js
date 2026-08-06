@@ -3,7 +3,10 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import {
   createFedaPayTransaction,
   FedaPayApiError,
+  generateFedaPayCheckout,
   isValidFedaPayTransactionId,
+  normalizeTogoPhoneNumber,
+  sendFedaPayTogoMobileMoneyPush,
 } from "@/lib/fedapay";
 
 const DEFAULT_MIN_DEPOSIT = 100;
@@ -43,6 +46,7 @@ export async function POST(request) {
   }
 
   const amount = Number(body?.amount);
+  const phoneNumber = normalizeTogoPhoneNumber(body?.phoneNumber);
   const { min, max } = getDepositLimits();
   if (
     typeof body?.amount !== "number"
@@ -52,6 +56,12 @@ export async function POST(request) {
   ) {
     return Response.json(
       { error: `Amount must be an integer between ${min} and ${max} XOF` },
+      { status: 400 },
+    );
+  }
+  if (!phoneNumber) {
+    return Response.json(
+      { error: "A valid Togo Mobile Money number is required" },
       { status: 400 },
     );
   }
@@ -80,6 +90,7 @@ export async function POST(request) {
       amount,
       currency: { iso: "XOF" },
       description: `Recharge portefeuille Omni - ${amount} FCFA`,
+      callback_url: new URL("/wallet?payment=fedapay", request.url).toString(),
       custom_metadata: {
         omni_deposit_intent_id: intentId,
       },
@@ -107,12 +118,35 @@ export async function POST(request) {
       throw new Error("Deposit intent could not be linked to FedaPay");
     }
 
+    const checkout = await generateFedaPayCheckout(transaction);
+
+    try {
+      await sendFedaPayTogoMobileMoneyPush(transaction, {
+        token: checkout.token,
+        phoneNumber,
+      });
+    } catch {
+      // The hosted checkout uses the same transaction. This is also safe when
+      // the push result is uncertain after a provider timeout.
+      return Response.json({
+        ok: true,
+        intentId,
+        transactionId: providerTransactionId,
+        amount,
+        currency: "XOF",
+        flow: "hosted_checkout",
+        checkoutUrl: checkout.url,
+      });
+    }
+
     return Response.json({
       ok: true,
       intentId,
       transactionId: providerTransactionId,
       amount,
       currency: "XOF",
+      flow: "mobile_money_push",
+      checkoutUrl: checkout.url,
     });
   } catch (error) {
     try {
