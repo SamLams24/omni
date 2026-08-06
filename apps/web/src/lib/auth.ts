@@ -27,10 +27,26 @@ async function ensureAppUser(authUser) {
   }
 }
 
+function parseCookie(cookieHeader, name) {
+  if (!cookieHeader) return null;
+  for (const pair of cookieHeader.split(';')) {
+    const idx = pair.indexOf('=');
+    if (idx === -1) continue;
+    const key = pair.slice(0, idx).trim();
+    const value = pair.slice(idx + 1).trim();
+    if (key === name) return decodeURIComponent(value);
+  }
+  return null;
+}
+
 export async function getServerSession(request) {
   const authUrl = getAuthUrl();
+  const cookieHeader = request.headers.get('cookie');
   const authHeader = request.headers.get('authorization');
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  // Read JWT from cookie (official pattern) or Authorization header (fallback)
+  const token = parseCookie(cookieHeader, 'omni_session')
+    || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null);
 
   if (!authUrl || !token) {
     return null;

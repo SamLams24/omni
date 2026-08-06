@@ -39,6 +39,30 @@ export async function getAuthToken() {
   }
 }
 
+async function setSessionCookie(token) {
+  try {
+    await fetch('/api/auth/set-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ token }),
+    });
+  } catch (e) {
+    console.error('[Auth] Failed to set session cookie:', e);
+  }
+}
+
+async function clearSessionCookie() {
+  try {
+    await fetch('/api/auth/clear-session', {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch (e) {
+    console.error('[Auth] Failed to clear session cookie:', e);
+  }
+}
+
 export async function authFetch(url, options = {}) {
   const token = await getAuthToken();
   const headers = new Headers(options.headers || {});
@@ -50,17 +74,33 @@ export async function authFetch(url, options = {}) {
 
 export async function signInWithCredentials({ email, password }) {
   const client = getAuthClient();
-  return await client.signIn.email({ email, password });
+  const result = await client.signIn.email({ email, password });
+  if (!result.error) {
+    const { data: tokenData } = await client.token();
+    if (tokenData?.token) {
+      await setSessionCookie(tokenData.token);
+    }
+  }
+  return result;
 }
 
 export async function signUpWithCredentials({ email, password, name }) {
   const client = getAuthClient();
-  return await client.signUp.email({ email, password, name });
+  const result = await client.signUp.email({ email, password, name });
+  if (!result.error) {
+    const { data: tokenData } = await client.token();
+    if (tokenData?.token) {
+      await setSessionCookie(tokenData.token);
+    }
+  }
+  return result;
 }
 
 export async function signOut() {
   const client = getAuthClient();
-  return await client.signOut();
+  const result = await client.signOut();
+  await clearSessionCookie();
+  return result;
 }
 
 export async function checkAuth() {
