@@ -119,24 +119,3 @@ export function hasOppositeDirection(first, second) {
     firstVector.x * secondVector.x + firstVector.y * secondVector.y
   ) < 0;
 }
-
-export function interpolateRoutePosition(routePoints, progress) {
-  if (!Array.isArray(routePoints) || routePoints.length === 0) return null;
-  if (routePoints.length === 1) return routePoints[0];
-
-  const normalizedProgress = Math.max(0, Math.min(1, Number(progress) || 0));
-  const segmentCount = routePoints.length - 1;
-  const segmentProgress = normalizedProgress * segmentCount;
-  const segmentIndex = Math.min(
-    Math.floor(segmentProgress),
-    segmentCount - 1,
-  );
-  const ratio = segmentProgress - segmentIndex;
-  const from = routePoints[segmentIndex];
-  const to = routePoints[segmentIndex + 1];
-
-  return {
-    lat: from.lat + (to.lat - from.lat) * ratio,
-    lon: from.lon + (to.lon - from.lon) * ratio,
-  };
-}

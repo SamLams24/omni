@@ -22,6 +22,8 @@
   creation is cash-only and historical escrow carts fail closed before mutation
 - ✅ Removed simulated courier wallet credits while preserving atomic delivery
   and cash-cart completion
+- ✅ Removed the in-memory delivery position simulator; the tracking endpoint
+  now fails closed until authenticated real-time location updates exist
 - ✅ Cleared critical production dependency advisories by constraining the
   Neon Auth chain to patched Better Auth and Vitest versions, while preventing
   resolution of the vulnerable Next.js peer version
@@ -30,8 +32,6 @@
   CSS, build, and glob-expansion dependency families
 
 ### Remaining
-- ⚠️ Delivery tracking still contains a development-only position simulator
-  protected by a production fail-closed flag
 - ⚠️ One high-severity React Router advisory remains. It affects the optional
   RSC mode, which Omni does not enable; its upstream fix requires the breaking
   React Router 8 migration and must be handled as a dedicated upgrade
