@@ -2,7 +2,6 @@ import path from 'node:path';
 import { reactRouter } from '@react-router/dev/vite';
 import { reactRouterHonoServer } from 'react-router-hono-server/dev';
 import { defineConfig } from 'vite';
-import babel from 'vite-plugin-babel';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { addRenderIds } from './plugins/addRenderIds';
 import { aliases } from './plugins/aliases';
@@ -40,17 +39,6 @@ export default defineConfig({
       runtime: 'node',
     }),
     reactRouter(),
-    babel({
-      include: ['src/**/*.{js,jsx,ts,tsx}'],
-      exclude: /node_modules/,
-      babelConfig: {
-        babelrc: false,
-        configFile: false,
-        plugins: [['styled-jsx/babel', { sourceMaps: true }]],
-        sourceMaps: true,
-      },
-      apply: 'build',
-    }),
     restart({
       restart: [
         'src/**/page.jsx',

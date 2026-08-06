@@ -12,7 +12,8 @@ export default function ReviewForm({ facilityId, onSubmitted }) {
     if (rating === 0) return;
     setSending(true);
     try {
-      const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+      const { authFetch } = await import("@/lib/auth-client");
+      const authRes = await authFetch("/api/auth/session");
       const authData = await authRes.json();
       if (!authData?.user) { toast("Connecte-toi d'abord"); return; }
 

@@ -9,10 +9,11 @@ function useAuth() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const { getSession } = await import('@/lib/auth-client');
-        const session = await getSession();
-        if (session?.user) {
-          setUser(session.user);
+        const { authFetch } = await import('@/lib/auth-client');
+        const res = await authFetch('/api/auth/session');
+        const data = await res.json();
+        if (data?.user) {
+          setUser(data.user);
           setLoading(false);
           return;
         }
@@ -76,10 +77,11 @@ function useAuth() {
   }, [navigate]);
 
   const refreshSession = useCallback(async () => {
-    const { getSession } = await import('@/lib/auth-client');
-    const session = await getSession();
-    setUser(session?.user || null);
-    return session;
+    const { authFetch } = await import('@/lib/auth-client');
+    const res = await authFetch('/api/auth/session');
+    const data = await res.json();
+    setUser(data?.user || null);
+    return data;
   }, []);
 
   return {

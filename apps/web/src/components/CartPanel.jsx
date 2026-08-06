@@ -82,7 +82,8 @@ export default function CartPanel({ isOpen, onClose, onItemCountChange }) {
   const sendCart = async (facilityId) => {
     let userId = null;
     try {
-      const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+      const { authFetch } = await import("@/lib/auth-client");
+      const authRes = await authFetch("/api/auth/session");
       const authData = await authRes.json();
       userId = authData?.user?.id || null;
     } catch {}

@@ -17,7 +17,8 @@ export default function MobileNav({ isAuthenticated, authChecking, userName, bal
     setOpen(false);
     if (role === "vendor") {
       try {
-        const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+        const { authFetch } = await import("@/lib/auth-client");
+        const authRes = await authFetch("/api/auth/session");
         const authData = await authRes.json();
         if (!authData?.user) { navigate("/auth"); return; }
         const res = await fetch("/api/vendors/my-vendor");
@@ -28,7 +29,8 @@ export default function MobileNav({ isAuthenticated, authChecking, userName, bal
       } catch { navigate("/vendor/onboarding"); }
     } else if (role === "delivery") {
       try {
-        const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+        const { authFetch } = await import("@/lib/auth-client");
+        const authRes = await authFetch("/api/auth/session");
         const authData = await authRes.json();
         if (!authData?.user) { navigate("/auth"); return; }
         const res = await fetch("/api/delivery/profile");

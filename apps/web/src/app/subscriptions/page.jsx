@@ -11,13 +11,18 @@ export default function SubscriptionsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then(r => r.json())
-      .then(data => {
+    const checkSession = async () => {
+      const { authFetch } = await import("@/lib/auth-client");
+      try {
+        const r = await authFetch("/api/auth/session");
+        const data = await r.json();
         if (!data?.user) { navigate("/auth"); return; }
         loadData();
-      })
-      .catch(() => navigate("/auth"));
+      } catch {
+        navigate("/auth");
+      }
+    };
+    checkSession();
   }, []);
 
   const loadData = async () => {

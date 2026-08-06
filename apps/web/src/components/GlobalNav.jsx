@@ -7,7 +7,7 @@ import { Menu, X, Store, Truck, Wallet, Crown, User, LogIn, Map, LayoutDashboard
 export default function GlobalNav() {
   const [open, setOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userName, setUserName] = useState(null);
+  const [user, setUser] = useState(null);
   const [balance, setBalance] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const navigate = useNavigate();
@@ -16,20 +16,15 @@ export default function GlobalNav() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        let data;
-        const res = await fetch("/api/auth/session", { cache: "no-store" });
-        data = await res.json();
-
-        if (!data?.user) {
-          const { syncAuthSession } = await import("@/lib/auth-client");
-          data = await syncAuthSession();
-        }
-
-        if (data?.user) {
-          setIsAuthenticated(true);
-          setUserName(data.user.name);
-        }
-      } catch {}
+        const { authFetch } = await import("@/lib/auth-client");
+        const res = await authFetch("/api/auth/session");
+        const data = await res.json();
+        setIsAuthenticated(!!data?.user);
+        setUser(data?.user || null);
+      } catch {
+        setIsAuthenticated(false);
+        setUser(null);
+      }
       setAuthLoading(false);
     };
     checkAuth();
@@ -121,10 +116,10 @@ export default function GlobalNav() {
               ) : isAuthenticated ? (
                 <div className="flex items-center gap-3 mb-6 pb-6 border-b border-white/5">
                   <div className="w-9 h-9 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                    <span className="text-emerald-400 text-sm font-medium">{userName?.[0]?.toUpperCase() || "U"}</span>
+                    <span className="text-emerald-400 text-sm font-medium">{user?.name?.[0]?.toUpperCase() || "U"}</span>
                   </div>
                   <div>
-                    <p className="text-white text-sm font-medium">{userName || "Utilisateur"}</p>
+                    <p className="text-white text-sm font-medium">{user?.name || "Utilisateur"}</p>
                     <p className="text-white/20 text-[10px]">Connecté</p>
                   </div>
                 </div>

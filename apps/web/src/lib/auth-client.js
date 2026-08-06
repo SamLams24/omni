@@ -11,7 +11,6 @@ function getAuthClient() {
   if (!authUrl) {
     throw new Error('Authentication is not configured');
   }
-
   authClient ||= createAuthClient(authUrl, {
     fetchOptions: { credentials: 'include' },
   });
@@ -23,11 +22,21 @@ export async function getSession() {
   if (result.error) {
     return { user: null, session: null };
   }
-
   return {
     user: result.data?.user || null,
     session: result.data?.session || null,
   };
+}
+
+export async function getAuthToken() {
+  try {
+    const client = getAuthClient();
+    const { data, error } = await client.token();
+    if (error || !data?.token) return null;
+    return data.token;
+  } catch {
+    return null;
+  }
 }
 
 async function setSessionCookie(token) {
@@ -52,6 +61,15 @@ async function clearSessionCookie() {
   } catch (e) {
     console.error('[Auth] Failed to clear session cookie:', e);
   }
+}
+
+export async function authFetch(url, options = {}) {
+  const token = await getAuthToken();
+  const headers = new Headers(options.headers || {});
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return fetch(url, { ...options, headers, credentials: 'omit' });
 }
 
 export async function signInWithCredentials({ email, password }) {

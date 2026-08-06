@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Loader2, User, MapPin, Trash2, ChevronRight } from "lucide-react";
-import { getSession, signOut } from "@/lib/auth-client";
+import { signOut } from "@/lib/auth-client";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -20,23 +20,29 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const loadProfile = async () => {
-      const session = await getSession().catch(() => ({ user: null }));
-      if (!session.user) {
-        localStorage.removeItem("omni_user");
-        navigate("/auth");
-        return;
-      }
-      setUser(session.user);
-
-      const res = await fetch("/api/user/profile");
-      const data = await res.json();
-      if (data.user) {
-        setForm({ name: data.user.name || "", phone: data.user.phone || "" });
-        if (data.user.lat && data.user.lon) {
-          setLocation({ lat: data.user.lat, lon: data.user.lon });
+      try {
+        const { authFetch } = await import("@/lib/auth-client");
+        const sessionRes = await authFetch("/api/auth/session");
+        const sessionData = await sessionRes.json();
+        if (!sessionData?.user) {
+          navigate("/auth");
+          return;
         }
+        setUser(sessionData.user);
+
+        const res = await fetch("/api/user/profile");
+        const data = await res.json();
+        if (data.user) {
+          setForm({ name: data.user.name || "", phone: data.user.phone || "" });
+          if (data.user.lat && data.user.lon) {
+            setLocation({ lat: data.user.lat, lon: data.user.lon });
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load profile:", e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     loadProfile();
   }, [navigate]);

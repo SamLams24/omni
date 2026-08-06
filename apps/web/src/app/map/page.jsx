@@ -145,26 +145,26 @@ export default function MapPage() {
 
   // Auth check — allows guest browsing, no hard redirect
   useEffect(() => {
+    console.log('[Map] Auth useEffect triggered');
     const checkAuth = async () => {
+      console.log('[Map] checkAuth started');
       try {
-        let data;
-        const response = await fetch("/api/auth/session", { cache: "no-store" });
-        data = await response.json();
-
-        if (!data?.user) {
-          const { syncAuthSession } = await import("@/lib/auth-client");
-          data = await syncAuthSession();
-        }
-
+        console.log('[Map] importing auth-client...');
+        const { authFetch } = await import("@/lib/auth-client");
+        console.log('[Map] auth-client imported, calling /api/auth/session...');
+        const res = await authFetch("/api/auth/session");
+        console.log('[Map] response status:', res.status);
+        const data = await res.json();
+        console.log('[Map] data.user:', data?.user ? `id=${data.user.id}` : 'null');
         if (data?.user) {
           setIsAuthenticated(true);
           setUserName(data.user.name || null);
         }
-      } catch (error) {
-        console.error("Auth check failed:", error);
-      } finally {
-        setAuthChecking(false);
+      } catch (e) {
+        console.error('[Map] authFetch error:', e);
       }
+      console.log('[Map] setting authChecking=false');
+      setAuthChecking(false);
     };
     checkAuth();
   }, []);

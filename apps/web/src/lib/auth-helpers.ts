@@ -13,7 +13,8 @@ export async function getCurrentUser(): Promise<User | null> {
   if (cachedUser && now - cacheTime < CACHE_TTL) return cachedUser;
 
   try {
-    const res = await fetch("/api/auth/session", { cache: "no-store" });
+    const { authFetch } = await import("@/lib/auth-client");
+    const res = await authFetch("/api/auth/session");
     const data = await res.json();
     const user = data?.user || null;
     cachedUser = user;

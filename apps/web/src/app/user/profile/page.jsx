@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Heart, MapPin, Loader2, LogOut, ArrowLeft } from "lucide-react";
-import { getSession, signOut } from "@/lib/auth-client";
+import { signOut } from "@/lib/auth-client";
 
 export default function UserProfilePage() {
   const navigate = useNavigate();
@@ -14,17 +14,18 @@ export default function UserProfilePage() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const session = await getSession();
-        if (!session.user) {
-          localStorage.removeItem("omni_user");
+        const { authFetch } = await import("@/lib/auth-client");
+        const res = await authFetch("/api/auth/session");
+        const data = await res.json();
+        if (!data?.user) {
           navigate("/auth");
           return;
         }
 
-        setUser(session.user);
-        const response = await fetch("/api/favorites");
-        const data = await response.json();
-        setFavorites(data.favorites || []);
+        setUser(data.user);
+        const favRes = await authFetch("/api/favorites");
+        const favData = await favRes.json();
+        setFavorites(favData.favorites || []);
       } finally {
         setLoading(false);
       }

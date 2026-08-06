@@ -1,5 +1,5 @@
-import { neon, neonConfig } from '@neondatabase/serverless';
-import ws from 'ws';
+import { neon, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 
 neonConfig.webSocketConstructor = ws;
 
@@ -7,31 +7,36 @@ const dbUrl = process.env.DATABASE_URL;
 const sql = dbUrl ? neon(dbUrl) : null;
 
 function getAuthUrl() {
-  return (process.env.NEON_AUTH_URL || import.meta.env.VITE_NEON_AUTH_URL || '').replace(/\/+$/, '') || null;
+  return (
+    (
+      process.env.NEON_AUTH_URL ||
+      import.meta.env.VITE_NEON_AUTH_URL ||
+      ""
+    ).replace(/\/+$/, "") || null
+  );
 }
 
 async function ensureAppUser(authUser) {
   if (!sql) return;
-
   try {
-    const email = authUser.email || `${authUser.id.replace(/-/g, '')}@omni.app`;
+    const email = authUser.email || `${authUser.id.replace(/-/g, "")}@omni.app`;
     await sql`
       INSERT INTO users (id, name, email)
-      VALUES (${authUser.id}::uuid, ${authUser.name || 'Utilisateur'}, ${email})
+      VALUES (${authUser.id}::uuid, ${authUser.name || "Utilisateur"}, ${email})
       ON CONFLICT (id) DO UPDATE
         SET name = COALESCE(EXCLUDED.name, users.name),
             email = COALESCE(EXCLUDED.email, users.email),
             updated_at = CURRENT_TIMESTAMP
     `;
   } catch (error) {
-    console.error('[Auth] Failed to sync authenticated user');
+    console.error("[Auth] Failed to sync authenticated user");
   }
 }
 
 function parseCookie(cookieHeader, name) {
   if (!cookieHeader) return null;
-  for (const pair of cookieHeader.split(';')) {
-    const idx = pair.indexOf('=');
+  for (const pair of cookieHeader.split(";")) {
+    const idx = pair.indexOf("=");
     if (idx === -1) continue;
     const key = pair.slice(0, idx).trim();
     const value = pair.slice(idx + 1).trim();
@@ -42,8 +47,8 @@ function parseCookie(cookieHeader, name) {
 
 export async function getServerSession(request) {
   const authUrl = getAuthUrl();
-  const cookieHeader = request.headers.get('cookie');
-  const token = parseCookie(cookieHeader, 'omni_session');
+  const cookieHeader = request.headers.get("cookie");
+  const authHeader = request.headers.get("authorization");
 
   if (!authUrl || !token) {
     return null;
@@ -52,11 +57,11 @@ export async function getServerSession(request) {
   try {
     const response = await fetch(`${authUrl}/get-session`, {
       headers: {
-        accept: 'application/json',
-        authorization: `Bearer ${token}`,
+        accept: "application/json",
+        authorization: `Bearer ${token}`
       },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(5000),
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000)
     });
 
     if (!response.ok) {
@@ -72,8 +77,8 @@ export async function getServerSession(request) {
     return {
       data: {
         user: data.user,
-        session: data.session || {},
-      },
+        session: data.session || {}
+      }
     };
   } catch {
     return null;
