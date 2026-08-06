@@ -1,3 +1,5 @@
+import { deriveVerificationStatus } from "@/lib/vendor-verification";
+
 export const DEFAULT_NEARBY_RADIUS_METERS = 10000;
 export const MAX_NEARBY_RADIUS_METERS = 50000;
 export const DEFAULT_NEARBY_LIMIT = 50;
@@ -88,7 +90,7 @@ export function escapeLikePattern(value) {
 }
 
 export function normalizeGeoRow(row) {
-  return {
+  const normalized = {
     ...row,
     lat: Number(row.lat),
     lon: Number(row.lon),
@@ -98,4 +100,19 @@ export function normalizeGeoRow(row) {
     review_count: Number(row.review_count || 0),
     avg_price: Number(row.avg_price || 0),
   };
+
+  if ("kyc_status" in row) {
+    normalized.source = "omni";
+    normalized.verification_status = deriveVerificationStatus({
+      source: "omni",
+      claimed: Boolean(row.claimed),
+      kycStatus: row.kyc_status,
+      subscriptionActive: Boolean(row.subscription_active),
+    });
+    delete normalized.kyc_status;
+    delete normalized.claimed;
+    delete normalized.subscription_active;
+  }
+
+  return normalized;
 }

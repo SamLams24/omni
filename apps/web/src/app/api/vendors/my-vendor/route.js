@@ -1,5 +1,6 @@
 import sql from "@/app/api/utils/sql";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { deriveVerificationStatus } from "@/lib/vendor-verification";
 
 export async function GET(request) {
   try {
@@ -20,7 +21,7 @@ export async function GET(request) {
 
     // Get vendor for this user
     const vendorResult = await sql`
-      SELECT 
+      SELECT
         id,
         name,
         category,
@@ -28,7 +29,15 @@ export async function GET(request) {
         is_online,
         ST_Y(location::geometry) as lat,
         ST_X(location::geometry) as lon,
-        created_at
+        created_at,
+        kyc_status,
+        EXISTS (
+          SELECT 1 FROM subscriptions s
+          WHERE s.user_id = vendors.user_id
+            AND s.type = 'vendor'
+            AND s.status = 'active'
+            AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
+        ) AS subscription_active
       FROM vendors
       WHERE user_id = ${userId}
       LIMIT 1
@@ -39,6 +48,14 @@ export async function GET(request) {
     }
 
     const vendor = { ...vendorResult[0], vendor_tier: userResult[0]?.vendor_tier || "free" };
+    vendor.verification_status = deriveVerificationStatus({
+      source: "omni",
+      claimed: true, // this route only returns vendors owned by the authenticated user
+      kycStatus: vendor.kyc_status,
+      subscriptionActive: Boolean(vendor.subscription_active),
+    });
+    delete vendor.kyc_status;
+    delete vendor.subscription_active;
 
     // Get facilities for this vendor
     const facilitiesResult = await sql`

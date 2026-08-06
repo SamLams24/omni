@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import RespondModal from "@/components/RespondModal";
 import SubscriptionBadge from "@/components/SubscriptionBadge";
+import VerificationBadge from "@/components/VerificationBadge";
 
 export default function VendorDashboardPage() {
   const [vendor, setVendor] = useState(null);
@@ -216,6 +217,9 @@ export default function VendorDashboardPage() {
         <div className="flex items-center gap-3">
           <h1 className="font-space-grotesk text-2xl md:text-3xl font-bold text-white">{vendor.name}</h1>
           <SubscriptionBadge tier={vendor.vendor_tier} compact />
+          {vendor.verification_status && (
+            <VerificationBadge status={vendor.verification_status} compact />
+          )}
         </div>
         <p className="font-dm-sans text-sm text-zinc-400 mt-1">{vendor.category}</p>
       </div>

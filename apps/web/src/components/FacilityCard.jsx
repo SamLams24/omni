@@ -1,4 +1,5 @@
 import { MapPin, Star, Navigation } from "lucide-react";
+import VerificationBadge from "./VerificationBadge";
 
 export default function FacilityCard({ facility, onSelect, onNavigate, onContact, isAuthenticated }) {
   const stars = facility.rating ? Math.round(facility.rating) : 0;
@@ -19,6 +20,9 @@ export default function FacilityCard({ facility, onSelect, onNavigate, onContact
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
                 Mobile
               </span>
+            )}
+            {facility.verification_status && (
+              <VerificationBadge status={facility.verification_status} compact />
             )}
           </div>
           <p className="text-white/40 text-xs mt-0.5">{facility.vendor_name}</p>

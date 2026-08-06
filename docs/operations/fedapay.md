@@ -106,3 +106,11 @@ error bodies.
 This integration handles successful wallet deposits. Refund, dispute and
 chargeback accounting require a separate reviewed ledger policy before their
 webhook events can mutate balances.
+
+## Related fixes
+
+2026-08: the `getServerSession` auth bug (undefined `token`, `apps/web/src/lib/auth.ts`)
+that could 500 the wallet routes (`deposit-intent`, `fedapay-status`,
+`verify-fedapay`) was fixed by restoring cookie-priority/Bearer-fallback
+token resolution. No FedaPay-specific code changed; the 29 FedaPay tests
+were unaffected and remain green.
