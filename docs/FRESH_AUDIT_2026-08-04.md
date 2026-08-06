@@ -80,8 +80,8 @@ deposit or withdrawal balance mutation remains reachable.
 withdrawals. Local subscription billing and activation have also been removed;
 the module requires a dedicated, provider-verified billing design. Simulated
 escrow mutations and their client-side payment choice have been removed. The
-development-only delivery settlement still requires a real provider-backed
-design before it can be enabled.
+simulated courier wallet credit has also been removed; a real provider-backed
+payout design is still required before courier settlement can be introduced.
 
 ---
 
