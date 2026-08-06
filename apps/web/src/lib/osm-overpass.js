@@ -1,5 +1,9 @@
 const OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter";
-const OVERPASS_TIMEOUT_MS = 10_000;
+// Must stay comfortably above the `[timeout:15]` declared inside the Overpass
+// query itself -- aborting the client fetch before the server-declared budget
+// elapses guarantees failures on a moderately loaded public instance.
+const OVERPASS_QUERY_TIMEOUT_S = 15;
+const OVERPASS_TIMEOUT_MS = (OVERPASS_QUERY_TIMEOUT_S + 5) * 1000;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 200;
 const BUSINESS_AMENITIES = [
@@ -49,7 +53,7 @@ function buildQuery(bbox) {
   const box = `${bbox.south},${bbox.west},${bbox.north},${bbox.east}`;
   const amenityFilter = BUSINESS_AMENITIES.join("|");
   const tourismFilter = BUSINESS_TOURISM.join("|");
-  return `[out:json][timeout:15];(
+  return `[out:json][timeout:${OVERPASS_QUERY_TIMEOUT_S}];(
     node["shop"](${box});way["shop"](${box});
     node["amenity"~"^(${amenityFilter})$"](${box});way["amenity"~"^(${amenityFilter})$"](${box});
     node["office"](${box});way["office"](${box});
@@ -74,7 +78,12 @@ export async function queryOverpassBusinesses(bbox, { fetchImpl = fetch } = {}) 
   try {
     const response = await fetchImpl(OVERPASS_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "text/plain" },
+      headers: {
+        "Content-Type": "text/plain",
+        // Overpass's usage policy asks for an identifying User-Agent;
+        // some reverse proxies also deprioritize/reject generic clients.
+        "User-Agent": "OmniApp/1.0 (+https://omni.app; discovery-map)",
+      },
       body: buildQuery(bbox),
       signal: AbortSignal.timeout(OVERPASS_TIMEOUT_MS),
     });
@@ -89,6 +98,6 @@ export async function queryOverpassBusinesses(bbox, { fetchImpl = fetch } = {}) 
     return elements;
   } catch (error) {
     if (error instanceof OsmOverpassError) throw error;
-    throw new OsmOverpassError("Overpass request could not be completed");
+    throw new OsmOverpassError(`Overpass request could not be completed: ${error?.message || error}`);
   }
 }

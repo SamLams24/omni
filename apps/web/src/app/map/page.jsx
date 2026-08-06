@@ -468,19 +468,21 @@ export default function MapPage() {
       
       // At high zoom (15+), show all markers in view
       // At low zoom, filter to show only clustered markers by viewport
-      if (currentZoom < 12 && vendors.length > 20) {
+      // (operates on sortedVendors, which includes both OMNI facilities and
+      // OSM businesses, so zooming out never silently drops OSM markers)
+      if (currentZoom < 12 && sortedVendors.length > 20) {
         // Filter vendors to those within viewport bounds + buffer
-        visibleVendors = vendors.filter(vendor => {
+        visibleVendors = sortedVendors.filter(vendor => {
           if (vendor.lon == null || vendor.lat == null) return false;
           const lng = Number(vendor.lon);
           const lat = Number(vendor.lat);
           return bounds.contains([lng, lat]);
         });
-        
+
         // If no vendors in view, show nearest ones
         if (visibleVendors.length === 0) {
           const center = map.current.getCenter();
-          visibleVendors = [...vendors]
+          visibleVendors = [...sortedVendors]
             .sort((a, b) => {
               const distA = Math.sqrt(Math.pow(a.lat - center.lat, 2) + Math.pow(a.lon - center.lng, 2));
               const distB = Math.sqrt(Math.pow(b.lat - center.lat, 2) + Math.pow(b.lon - center.lng, 2));
@@ -488,7 +490,7 @@ export default function MapPage() {
             })
             .slice(0, 15);
         }
-        console.log('[Map] Viewport filtered vendors:', visibleVendors.length, 'of', vendors.length);
+        console.log('[Map] Viewport filtered vendors:', visibleVendors.length, 'of', sortedVendors.length);
       }
     }
 
@@ -588,8 +590,19 @@ export default function MapPage() {
       setError("Impossible de charger les vendeurs");
     }
 
-    // OSM is best-effort: never blocks or errors the primary vendor list.
-    setOsmVendors(osmResult.status === "fulfilled" ? osmResult.value : []);
+    // OSM is best-effort: never blocks or errors the primary vendor list,
+    // but still surface the reason in the console for debugging.
+    if (osmResult.status === "fulfilled") {
+      setOsmVendors(osmResult.value);
+      if (osmResult.value.length === 0) {
+        console.log('[Map] No OpenStreetMap businesses returned for this area (empty result, or Overpass unavailable/timed out)');
+      } else {
+        console.log('[Map] Loaded', osmResult.value.length, 'OpenStreetMap businesses');
+      }
+    } else {
+      console.error('[Map] Error loading OpenStreetMap businesses:', osmResult.reason);
+      setOsmVendors([]);
+    }
 
     setLoading(false);
   };
@@ -697,6 +710,20 @@ export default function MapPage() {
   };
 
   const handleVendorClick = async (vendor) => {
+    // OSM entries have no corresponding row in the facilities/vendors
+    // tables to fetch extra details for -- vendor.id is an "osm:<type>:<id>"
+    // string, not a UUID, so /api/facilities/:id or /api/vendors/:id would
+    // always fail. Everything available for an OSM business already came
+    // back from the OSM normalizer; just select it directly.
+    if (vendor.source === 'osm') {
+      setHighlightedFacilityId(vendor.id);
+      setSelectedVendor(vendor);
+      if (map.current && vendor.lon != null && vendor.lat != null) {
+        map.current.flyTo({ center: [Number(vendor.lon), Number(vendor.lat)], zoom: 16, pitch: 45, duration: 1500 });
+      }
+      return;
+    }
+
     setLoading(true);
     try {
       const apiPath = vendor.facility_name ? `/api/facilities/${vendor.id}` : `/api/vendors/${vendor.id}`;

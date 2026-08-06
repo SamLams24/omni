@@ -32,6 +32,7 @@ export async function handleOsmNearby(request) {
     }
     if (error instanceof OsmOverpassError) {
       // Fail soft: the map should still work with OMNI vendors if OSM is unavailable.
+      console.error("[OSM] Overpass request failed:", error.message);
       return Response.json({ facilities: [], meta: { error: "osm_unavailable" } });
     }
     console.error("Error fetching OSM businesses:", error);
