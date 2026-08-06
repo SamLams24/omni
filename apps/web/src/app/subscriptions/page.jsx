@@ -67,7 +67,7 @@ export default function SubscriptionsPage() {
               <ul className="mt-3 space-y-1.5">
                 {[
                   { free: "1 facility, 5 produits", prem: "Facilities & produits illimités" },
-                  { free: "Cash uniquement", prem: "Cash + escrow (encaissement wallet)" },
+                  { free: "Fonctions essentielles", prem: "Fonctions avancées vendeur" },
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs">
                     <Check size={10} className={`mt-0.5 shrink-0 ${vendorTier === "premium" ? "text-emerald-400" : "text-white/20"}`} />

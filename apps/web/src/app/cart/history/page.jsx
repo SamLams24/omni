@@ -155,7 +155,7 @@ export default function CartHistory() {
                         <Clock size={10} />
                         <span>{new Date(cart.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
                         <span>·</span>
-                        <span>{cart.payment_method === "escrow" ? "Balance" : "Cash"}</span>
+                        <span>{cart.payment_method === "escrow" ? "Escrow (désactivé)" : "Espèces"}</span>
                       </div>
                       <button
                         onClick={async () => {

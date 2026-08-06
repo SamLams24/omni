@@ -34,6 +34,15 @@ export async function POST(request) {
     }
 
     const req = deliveryReqs[0];
+    if (req.payment_method !== "cash") {
+      return Response.json(
+        {
+          error: "Le paiement escrow n’est pas disponible.",
+          code: "ESCROW_DISABLED",
+        },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     if (!["matched", "picked_up", "in_transit"].includes(req.status)) {
       return Response.json({ error: `Cannot confirm delivery: status is '${req.status}'` }, { status: 400 });
     }
@@ -62,18 +71,10 @@ export async function POST(request) {
       `;
     }
 
-    // Handle payment method
-    if (req.payment_method === 'cash') {
-      await sql`
-        UPDATE carts SET status = 'completed', completed_at = CURRENT_TIMESTAMP
-        WHERE id = ${req.cart_id}
-      `;
-    } else if (req.payment_method === 'escrow') {
-      await sql`
-        UPDATE escrow_holds SET delivery_confirmed_at = CURRENT_TIMESTAMP
-        WHERE cart_id = ${req.cart_id} AND released_at IS NULL AND refunded_at IS NULL
-      `;
-    }
+    await sql`
+      UPDATE carts SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+      WHERE id = ${req.cart_id} AND payment_method = 'cash'
+    `;
 
     // Notify buyer
     await sql`

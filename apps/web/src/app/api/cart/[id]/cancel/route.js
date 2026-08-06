@@ -1,5 +1,4 @@
 import sql from "@/app/api/utils/sql";
-import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { promoteNextAvailabilityGroup } from "@/domains/cart/queue";
 
@@ -16,7 +15,7 @@ export async function POST(request, { params }) {
     }
 
     const carts = await sql`
-      SELECT c.id, c.status, c.buyer_id, f.vendor_id
+      SELECT c.id, c.status, c.buyer_id, c.payment_method, f.vendor_id
       FROM carts c
       JOIN facilities f ON f.id = c.facility_id
       WHERE c.id = ${id}
@@ -27,6 +26,15 @@ export async function POST(request, { params }) {
     const cart = carts[0];
     if (cart.buyer_id !== user.id) {
       return Response.json({ error: "Unauthorized" }, { status: 403 });
+    }
+    if (cart.payment_method !== "cash") {
+      return Response.json(
+        {
+          error: "Le paiement escrow n’est pas disponible.",
+          code: "ESCROW_DISABLED",
+        },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
     }
     if (["completed", "cancelled"].includes(cart.status)) {
       return Response.json({ error: "Cart already finalized" }, { status: 409 });
@@ -47,53 +55,14 @@ export async function POST(request, { params }) {
       );
     }
 
-    const holds = await sql`
-      SELECT eh.id, w.id AS wallet_id
-      FROM escrow_holds eh
-      LEFT JOIN wallets w ON w.user_id = eh.buyer_id
-      WHERE eh.cart_id = ${id} AND eh.status = 'held'
-    `;
-    const hasEscrowHold = holds.length > 0;
-    if (hasEscrowHold && !holds[0].wallet_id) {
-      return Response.json(
-        { error: "Buyer wallet is unavailable for refund" },
-        { status: 409 },
-      );
-    }
-    if (hasEscrowHold) {
-      const disabled = requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS");
-      if (disabled) return disabled;
-    }
-
     const cancelled = await sql`
       WITH transitioned AS (
         UPDATE carts
         SET status = 'cancelled'
         WHERE id = ${id}
           AND buyer_id = ${user.id}
+          AND payment_method = 'cash'
           AND status IN ('pending', 'confirmed', 'partial', 'denied')
-        RETURNING id
-      ),
-      refunded AS (
-        UPDATE escrow_holds eh
-        SET status = 'refunded', released_at = CURRENT_TIMESTAMP
-        WHERE eh.cart_id = ${id}
-          AND eh.status = 'held'
-          AND EXISTS (SELECT 1 FROM transitioned)
-        RETURNING eh.buyer_id, eh.amount + eh.fee AS refund_amount
-      ),
-      credited AS (
-        UPDATE wallets w
-        SET balance = w.balance + refunded.refund_amount,
-            updated_at = CURRENT_TIMESTAMP
-        FROM refunded
-        WHERE w.user_id = refunded.buyer_id
-        RETURNING w.id, refunded.refund_amount
-      ),
-      recorded AS (
-        INSERT INTO transactions (wallet_id, type, amount, reference)
-        SELECT id, 'escrow_refund', refund_amount, ${`Refund for cancelled cart ${id}`}
-        FROM credited
         RETURNING id
       ),
       denied_requests AS (
@@ -113,25 +82,12 @@ export async function POST(request, { params }) {
           AND EXISTS (SELECT 1 FROM transitioned)
         RETURNING id
       )
-      SELECT
-        transitioned.id,
-        CASE
-          WHEN ${hasEscrowHold}
-            THEN EXISTS (SELECT 1 FROM recorded)
-          ELSE true
-        END AS financial_complete
+      SELECT transitioned.id
       FROM transitioned
     `;
     if (cancelled.length === 0) {
       return Response.json({ error: "Cart already finalized" }, { status: 409 });
     }
-    if (!cancelled[0].financial_complete) {
-      return Response.json(
-        { error: "Escrow refund could not be completed" },
-        { status: 409 },
-      );
-    }
-
     await promoteNextAvailabilityGroup(cart.vendor_id);
     return Response.json({ success: true });
   } catch (error) {
