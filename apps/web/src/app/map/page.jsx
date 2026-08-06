@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import ChatModal from "@/components/ChatModal";
 import NotificationBell from "@/components/NotificationBell";
 import FavoriteButton from "@/components/FavoriteButton";
+import VerificationBadge from "@/components/VerificationBadge";
 import CartBadge from "@/components/CartBadge";
 import CartPanel from "@/components/CartPanel";
 import ReviewForm from "@/components/ReviewForm";
@@ -1259,6 +1260,11 @@ export default function MapPage() {
                 </div>
                 {selectedVendor.type === 'mobile' && (
                   <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">Mobile</span>
+                )}
+                {selectedVendor.source !== 'osm' && selectedVendor.verification_status && (
+                  <span className="inline-block mt-1">
+                    <VerificationBadge status={selectedVendor.verification_status} compact />
+                  </span>
                 )}
                 {selectedVendor.source === 'osm' && (
                   <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20">
