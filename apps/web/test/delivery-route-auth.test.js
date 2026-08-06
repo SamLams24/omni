@@ -83,4 +83,20 @@ describe("delivery route authorization", () => {
     expect(available).not.toContain("mockRequests");
     expect(available).toContain("FROM delivery_requests");
   });
+
+  it("completes deliveries without simulated wallet settlement", () => {
+    const confirmation = readSource(
+      "../src/app/api/delivery/confirm/route.js",
+    );
+
+    expect(confirmation).toContain("WITH delivered AS");
+    expect(confirmation).toContain("completed_cart AS");
+    expect(confirmation).toContain("c.payment_method = 'cash'");
+    expect(confirmation).toContain("c.status IN ('confirmed', 'partial')");
+    expect(confirmation).not.toContain("UPDATE wallets");
+    expect(confirmation).not.toContain("INSERT INTO transactions");
+    expect(confirmation).not.toContain("delivery_payment");
+    expect(confirmation).not.toContain("ENABLE_MOCK_FINANCIAL_FLOWS");
+    expect(confirmation).not.toContain("deliveryFee });");
+  });
 });

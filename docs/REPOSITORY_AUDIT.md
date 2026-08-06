@@ -20,6 +20,8 @@
   pricing UI no longer presents unvalidated prices or actionable payment CTAs
 - ✅ Removed simulated escrow holds, releases, refunds, and disputes; cart
   creation is cash-only and historical escrow carts fail closed before mutation
+- ✅ Removed simulated courier wallet credits while preserving atomic delivery
+  and cash-cart completion
 - ✅ Cleared critical production dependency advisories by constraining the
   Neon Auth chain to patched Better Auth and Vitest versions, while preventing
   resolution of the vulnerable Next.js peer version
@@ -28,8 +30,8 @@
   CSS, build, and glob-expansion dependency families
 
 ### Remaining
-- ⚠️ Delivery confirmation and simulated courier wallet credit remain a
-  development-only flow protected by a production fail-closed flag
+- ⚠️ Delivery tracking still contains a development-only position simulator
+  protected by a production fail-closed flag
 - ⚠️ One high-severity React Router advisory remains. It affects the optional
   RSC mode, which Omni does not enable; its upstream fix requires the breaking
   React Router 8 migration and must be handled as a dedicated upgrade
