@@ -70,6 +70,16 @@ export function loadNearbyFacilities(
   );
 }
 
+export function loadNearbyOsmBusinesses(
+  location: DiscoveryLocation,
+  {
+    radius = 1_500,
+    ...options
+  }: DiscoveryRequestOptions & { radius?: number } = {},
+) {
+  return requestFacilities("/api/discovery/osm", { ...location, radius }, options);
+}
+
 export function searchFacilitiesByText(
   location: DiscoveryLocation,
   query: string,

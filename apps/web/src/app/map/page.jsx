@@ -13,6 +13,7 @@ import ReviewList from "@/components/ReviewList";
 import MobileNav from "@/components/MobileNav";
 import {
   loadNearbyFacilities,
+  loadNearbyOsmBusinesses,
   searchFacilitiesByText,
 } from "@/domains/discovery/client";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -23,6 +24,7 @@ export default function MapPage() {
   const [userName, setUserName] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [vendors, setVendors] = useState([]);
+  const [osmVendors, setOsmVendors] = useState([]);
   const [sortBy, setSortBy] = useState("distance");
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -77,7 +79,8 @@ export default function MapPage() {
   }, []);
 
   const sortedVendors = useMemo(() => {
-    const sorted = [...vendors];
+    const combined = [...vendors, ...osmVendors];
+    const sorted = [...combined];
     if (sortBy === "price") {
       sorted.sort((a, b) => (a.avg_price || 0) - (b.avg_price || 0));
     } else if (sortBy === "rating") {
@@ -92,7 +95,7 @@ export default function MapPage() {
       sorted.sort((a, b) => (a.distance || 0) - (b.distance || 0));
     }
     return sorted;
-  }, [vendors, sortBy]);
+  }, [vendors, osmVendors, sortBy]);
 
   const addToCart = (product, facilityId, facilityName, vendorName, vendorId) => {
     try {
@@ -499,10 +502,15 @@ export default function MapPage() {
       el.style.width = "36px";
       el.style.height = "36px";
       el.style.borderRadius = "50%";
-      const isOnline = vendor.is_online !== undefined ? vendor.is_online : true;
-      el.style.backgroundColor = isOnline ? "rgba(16, 185, 129, 0.9)" : "rgba(107, 114, 128, 0.9)";
+      const isOsm = vendor.source === 'osm';
+      const isOnline = isOsm ? undefined : (vendor.is_online !== undefined ? vendor.is_online : true);
+      el.style.backgroundColor = isOsm
+        ? "rgba(96, 165, 250, 0.85)" // distinct blue = "OSM, unverified" -- not the green "online OMNI vendor" color
+        : (isOnline ? "rgba(16, 185, 129, 0.9)" : "rgba(107, 114, 128, 0.9)");
       el.style.border = "2px solid rgba(255, 255, 255, 0.8)";
-      el.style.boxShadow = "0 4px 12px rgba(0,0,0,0.4), 0 0 0 4px rgba(16, 185, 129, 0.2)";
+      el.style.boxShadow = isOsm
+        ? "0 4px 12px rgba(0,0,0,0.4), 0 0 0 4px rgba(96, 165, 250, 0.2)"
+        : "0 4px 12px rgba(0,0,0,0.4), 0 0 0 4px rgba(16, 185, 129, 0.2)";
       el.style.cursor = "pointer";
       el.style.display = "flex";
       el.style.alignItems = "center";
@@ -566,20 +574,23 @@ export default function MapPage() {
     setLoading(true);
     setError(null);
 
-    try {
-      const facilities = await loadNearbyFacilities({
-        lat: userLocation.lat,
-        lon: userLocation.lon,
-      });
-      if (requestId !== discoveryRequestRef.current) return;
-      setVendors(facilities);
-    } catch (err) {
-      if (requestId !== discoveryRequestRef.current) return;
-      console.error('[Map] Error loading facilities:', err);
+    const [facilitiesResult, osmResult] = await Promise.allSettled([
+      loadNearbyFacilities({ lat: userLocation.lat, lon: userLocation.lon }),
+      loadNearbyOsmBusinesses({ lat: userLocation.lat, lon: userLocation.lon }),
+    ]);
+    if (requestId !== discoveryRequestRef.current) return;
+
+    if (facilitiesResult.status === "fulfilled") {
+      setVendors(facilitiesResult.value);
+    } else {
+      console.error('[Map] Error loading facilities:', facilitiesResult.reason);
       setError("Impossible de charger les vendeurs");
-    } finally {
-      if (requestId === discoveryRequestRef.current) setLoading(false);
     }
+
+    // OSM is best-effort: never blocks or errors the primary vendor list.
+    setOsmVendors(osmResult.status === "fulfilled" ? osmResult.value : []);
+
+    setLoading(false);
   };
 
   const handleSearch = async (query = searchQuery) => {
@@ -1239,13 +1250,20 @@ export default function MapPage() {
                       <span className="text-white/20">·</span>
                     </>
                   )}
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                  {selectedVendor.source !== 'osm' && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                  )}
                   <span className="truncate">{selectedVendor.category}</span>
                   <span className="text-white/20">·</span>
                   <span className="shrink-0">{selectedVendor.distance ? `${Math.round(selectedVendor.distance)}m` : "À proximité"}</span>
                 </div>
                 {selectedVendor.type === 'mobile' && (
                   <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">Mobile</span>
+                )}
+                {selectedVendor.source === 'osm' && (
+                  <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                    Entreprise issue d'OpenStreetMap — Non vérifiée sur Omni
+                  </div>
                 )}
                 {selectedVendor.description && (
                   <p className="text-white/30 text-xs mt-1.5 line-clamp-2">{selectedVendor.description}</p>
@@ -1256,9 +1274,19 @@ export default function MapPage() {
                     <span className="text-white/40 text-xs">{selectedVendor.rating.toFixed(1)}</span>
                   </div>
                 )}
+                {selectedVendor.source === 'osm' && (
+                  <div className="mt-2 space-y-1 text-white/40 text-xs">
+                    {selectedVendor.address && <p>{selectedVendor.address}</p>}
+                    {selectedVendor.phone && <p>Tél. {selectedVendor.phone}</p>}
+                    {selectedVendor.website && <p className="truncate">{selectedVendor.website}</p>}
+                    {selectedVendor.opening_hours && <p>Horaires : {selectedVendor.opening_hours}</p>}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <FavoriteButton vendorId={selectedVendor.vendor_id || selectedVendor.id} />
+                {selectedVendor.source !== 'osm' && (
+                  <FavoriteButton vendorId={selectedVendor.vendor_id || selectedVendor.id} />
+                )}
                 <button
                   onClick={() => setSelectedVendor(null)}
                   className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 border border-white/5 flex items-center justify-center transition-colors"
@@ -1277,15 +1305,19 @@ export default function MapPage() {
                 <Navigation size={16} />
                 Itinéraire
               </button>
-              <button
-                onClick={() => isAuthenticated ? setShowVendorChat(true) : window.location.href = "/auth"}
-                className="flex-1 py-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 text-sm font-medium transition-all flex items-center justify-center gap-2"
-              >
-                <MessageCircle size={16} />
-                Contacter
-              </button>
+              {selectedVendor.source !== 'osm' && (
+                <button
+                  onClick={() => isAuthenticated ? setShowVendorChat(true) : window.location.href = "/auth"}
+                  className="flex-1 py-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 text-sm font-medium transition-all flex items-center justify-center gap-2"
+                >
+                  <MessageCircle size={16} />
+                  Contacter
+                </button>
+              )}
             </div>
 
+            {selectedVendor.source !== 'osm' && (
+            <>
             {/* Section Title */}
             <div className="flex items-center gap-2 mb-4">
               <div className="h-px flex-1 bg-white/5" />
@@ -1398,6 +1430,7 @@ export default function MapPage() {
                 <span className="text-white/20 text-xs">{showReviews ? "Masquer" : "Voir les avis"}</span>
               </button>
               {showReviews && (
+
                 <div className="mt-3">
                   <ReviewForm facilityId={selectedVendor.id} onSubmitted={() => {
                     loadReviews(selectedVendor.id);
@@ -1413,6 +1446,8 @@ export default function MapPage() {
                 </div>
               )}
             </div>
+            </>
+            )}
           </div>
         </div>
       )}
