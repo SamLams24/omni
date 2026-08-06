@@ -177,7 +177,7 @@ export default function MapComponent({ center, zoom, markers = [], onVendorClick
               </div>
 
               <button
-                onclick="window.checkAvailability('${escapeHtml(vendor.id)}')"
+                class="check-availability-btn"
                 style="
                   background: linear-gradient(135deg, #10B981, #059669); 
                   color: white; 
@@ -197,7 +197,16 @@ export default function MapComponent({ center, zoom, markers = [], onVendorClick
                 ✅ Vérifier disponibilité
               </button>
             </div>
-          `).addTo(mapInstanceRef.current);
+          `).on('popupopen', () => {
+            // Attach the handler programmatically (never via an inline
+            // onclick string) so vendor.id never crosses an HTML/JS
+            // attribute boundary.
+            const popupNode = vendorMarker.getPopup()?.getElement();
+            const button = popupNode?.querySelector('.check-availability-btn');
+            if (button && onVendorClick) {
+              button.onclick = () => onVendorClick(vendor);
+            }
+          }).addTo(mapInstanceRef.current);
           markersRef.current.push(vendorMarker);
         });
 
