@@ -148,13 +148,18 @@ export default function MapPage() {
     const checkAuth = async () => {
       try {
         const { authFetch } = await import("@/lib/auth-client");
+        console.log('[Map] authFetch: calling /api/auth/session...');
         const res = await authFetch("/api/auth/session");
+        console.log('[Map] authFetch: response status:', res.status);
         const data = await res.json();
+        console.log('[Map] authFetch: data.user:', data?.user ? `id=${data.user.id}` : 'null');
         if (data?.user) {
           setIsAuthenticated(true);
           setUserName(data.user.name || null);
         }
-      } catch {}
+      } catch (e) {
+        console.error('[Map] authFetch error:', e);
+      }
       setAuthChecking(false);
     };
     checkAuth();
