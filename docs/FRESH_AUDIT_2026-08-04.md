@@ -82,6 +82,8 @@ the module requires a dedicated, provider-verified billing design. Simulated
 escrow mutations and their client-side payment choice have been removed. The
 simulated courier wallet credit has also been removed; a real provider-backed
 payout design is still required before courier settlement can be introduced.
+The in-memory delivery position simulator has been removed as well; real-time
+tracking now requires a dedicated authenticated location-ingestion design.
 
 ---
 

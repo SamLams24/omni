@@ -1,5 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import {
+  GET as getDeliveryTracking,
+} from "../src/app/api/delivery/tracking/[id]/route.js";
 
 const deliveryRouteFiles = [
   "../src/app/api/delivery/accept/route.js",
@@ -14,7 +17,6 @@ const deliveryRouteFiles = [
   "../src/app/api/delivery/register/route.js",
   "../src/app/api/delivery/request/route.js",
   "../src/app/api/delivery/toggle/route.js",
-  "../src/app/api/delivery/tracking/[id]/route.js",
   "../src/app/api/delivery/trips/[id]/deactivate/route.js",
   "../src/app/api/delivery/trips/[id]/route.js",
   "../src/app/api/delivery/trips/active/route.js",
@@ -66,12 +68,20 @@ describe("delivery route authorization", () => {
     expect(updateTrip).toContain("delivery_tier");
   });
 
-  it("keeps simulated tracking disabled in production", () => {
+  it("removes simulated delivery tracking", async () => {
     const tracking = readSource("../src/app/api/delivery/tracking/[id]/route.js");
+    const response = await getDeliveryTracking();
 
-    expect(tracking).toContain("ENABLE_MOCK_DELIVERY_TRACKING");
-    expect(tracking).toContain("dr.buyer_id = ${userId}");
-    expect(tracking).toContain("dr.delivery_profile_id");
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "DELIVERY_TRACKING_UNAVAILABLE",
+    });
+    expect(tracking).not.toContain("Date.now");
+    expect(tracking).not.toContain("trackingPositions");
+    expect(tracking).not.toContain("interpolateRoutePosition");
+    expect(tracking).not.toContain("ENABLE_MOCK_DELIVERY_TRACKING");
+    expect(tracking).not.toContain("@/app/api/utils/sql");
   });
 
   it("does not return fabricated delivery locations or requests", () => {

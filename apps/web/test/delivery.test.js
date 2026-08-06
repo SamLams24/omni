@@ -4,7 +4,6 @@ import {
   distanceToRouteMeters,
   hasOppositeDirection,
   haversineDistanceMeters,
-  interpolateRoutePosition,
   pointToSegmentDistanceMeters,
   resolveDeliveryPoints,
 } from "@/domains/delivery/geo";
@@ -207,17 +206,4 @@ describe("delivery route geometry", () => {
     expect(hasOppositeDirection(eastbound, northbound)).toBe(false);
   });
 
-  it("interpolates and clamps mock tracking positions", () => {
-    const route = [
-      { lat: 0, lon: 0 },
-      { lat: 1, lon: 1 },
-      { lat: 2, lon: 0 },
-    ];
-
-    expect(interpolateRoutePosition(route, 0.25)).toEqual({
-      lat: 0.5,
-      lon: 0.5,
-    });
-    expect(interpolateRoutePosition(route, 2)).toEqual({ lat: 2, lon: 0 });
-  });
 });
