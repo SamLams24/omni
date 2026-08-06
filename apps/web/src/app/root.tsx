@@ -532,10 +532,11 @@ function RouteGuard({ children }: { children: ReactNode }) {
     let cancelled = false;
     const check = async () => {
       try {
-        const { getSession } = await import("@/lib/auth-client");
-        const session = await getSession();
+        const { authFetch } = await import("@/lib/auth-client");
+        const res = await authFetch("/api/auth/session");
+        const data = await res.json();
         if (cancelled) return;
-        setAuthed(!!session?.user);
+        setAuthed(!!data?.user);
       } catch {
         if (!cancelled) setAuthed(false);
       }

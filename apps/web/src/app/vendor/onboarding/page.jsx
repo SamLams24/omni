@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Loader2, Store, MapPin, Package, Plus, Trash2, ChevronRight, ArrowLeft } from "lucide-react";
-import { getSession } from "@/lib/auth-client";
+import { signOut } from "@/lib/auth-client";
 
 export default function VendorOnboardingPage() {
   const [user, setUser] = useState(null);
@@ -14,10 +14,11 @@ export default function VendorOnboardingPage() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const session = await getSession();
-        if (session.user) {
-          // Session is managed by Neon Auth cookies - no localStorage needed
-          setUser(session.user);
+        const { authFetch } = await import("@/lib/auth-client");
+        const res = await authFetch("/api/auth/session");
+        const data = await res.json();
+        if (data?.user) {
+          setUser(data.user);
         } else {
           setUser(null);
         }

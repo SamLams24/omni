@@ -147,11 +147,12 @@ export default function MapPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { getSession } = await import("@/lib/auth-client");
-        const session = await getSession();
-        if (session?.user) {
+        const { authFetch } = await import("@/lib/auth-client");
+        const res = await authFetch("/api/auth/session");
+        const data = await res.json();
+        if (data?.user) {
           setIsAuthenticated(true);
-          setUserName(session.user.name || null);
+          setUserName(data.user.name || null);
         }
       } catch {}
       setAuthChecking(false);

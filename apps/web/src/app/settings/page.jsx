@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Loader2, User, MapPin, Trash2, ChevronRight } from "lucide-react";
-import { getSession, signOut } from "@/lib/auth-client";
+import { signOut } from "@/lib/auth-client";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -20,13 +20,15 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const loadProfile = async () => {
-      const session = await getSession().catch(() => ({ user: null }));
-      if (!session.user) {
-        localStorage.removeItem("omni_user");
-        navigate("/auth");
-        return;
-      }
-      setUser(session.user);
+      try {
+        const { authFetch } = await import("@/lib/auth-client");
+        const res = await authFetch("/api/auth/session");
+        const data = await res.json();
+        if (!data?.user) {
+          navigate("/auth");
+          return;
+        }
+        setUser(data.user);
 
       const res = await fetch("/api/user/profile");
       const data = await res.json();

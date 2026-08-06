@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getSession } from "@/lib/auth-client";
 
 const useUser = () => {
   const [user, setUser] = useState(null);
@@ -7,10 +6,11 @@ const useUser = () => {
 
   const fetchUser = useCallback(async () => {
     try {
-      const session = await getSession();
-      if (session.user) {
-        // Session is managed by Neon Auth cookies - no localStorage needed
-        setUser(session.user);
+      const { authFetch } = await import("@/lib/auth-client");
+      const res = await authFetch("/api/auth/session");
+      const data = await res.json();
+      if (data?.user) {
+        setUser(data.user);
       } else {
         setUser(null);
       }
