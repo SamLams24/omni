@@ -29,7 +29,8 @@ export default function NotificationBell() {
 
   const loadNotifications = async () => {
     try {
-      const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+      const { authFetch } = await import("@/lib/auth-client");
+      const authRes = await authFetch("/api/auth/session");
       const authData = await authRes.json();
       if (!authData?.user) return;
 

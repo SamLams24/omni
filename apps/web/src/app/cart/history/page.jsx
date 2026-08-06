@@ -49,7 +49,8 @@ export default function CartHistory() {
   const fetchCarts = async (isInitial = false) => {
     if (isInitial) setLoading(true);
     try {
-      const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+      const { authFetch } = await import("@/lib/auth-client");
+      const authRes = await authFetch("/api/auth/session");
       const authData = await authRes.json();
       if (!authData?.user) {
         window.location.href = "/auth";
@@ -160,7 +161,8 @@ export default function CartHistory() {
                       <button
                         onClick={async () => {
                           try {
-                            const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+                            const { authFetch } = await import("@/lib/auth-client");
+                            const authRes = await authFetch("/api/auth/session");
                             const authData = await authRes.json();
                             if (!authData?.user) { window.location.href = "/auth"; return; }
                             fetch("/api/availability/request", {
@@ -194,7 +196,8 @@ export default function CartHistory() {
                       <button
                         onClick={async () => {
                           try {
-                            const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+                            const { authFetch } = await import("@/lib/auth-client");
+                            const authRes = await authFetch("/api/auth/session");
                             const authData = await authRes.json();
                             if (!authData?.user) { window.location.href = "/auth"; return; }
                             const res = await fetch(`/api/cart/${cart.id}/received`, {
@@ -211,7 +214,8 @@ export default function CartHistory() {
                       <button
                         onClick={async () => {
                           try {
-                            const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+                            const { authFetch } = await import("@/lib/auth-client");
+                            const authRes = await authFetch("/api/auth/session");
                             const authData = await authRes.json();
                             if (!authData?.user) { window.location.href = "/auth"; return; }
                             const res = await fetch(`/api/cart/${cart.id}/cancel`, {
@@ -231,7 +235,8 @@ export default function CartHistory() {
                     <button
                       onClick={async () => {
                         try {
-                          const authRes = await fetch("/api/auth/session", { cache: "no-store" });
+                          const { authFetch } = await import("@/lib/auth-client");
+                          const authRes = await authFetch("/api/auth/session");
                           const authData = await authRes.json();
                           if (!authData?.user) { window.location.href = "/auth"; return; }
                           const res = await fetch(`/api/cart/${cart.id}/cancel`, {

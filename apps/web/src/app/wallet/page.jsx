@@ -17,13 +17,18 @@ export default function WalletPage() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then(r => r.json())
-      .then(data => {
+    const checkSession = async () => {
+      const { authFetch } = await import("@/lib/auth-client");
+      try {
+        const r = await authFetch("/api/auth/session");
+        const data = await r.json();
         if (!data?.user) { navigate("/auth"); return; }
         loadWallet();
-      })
-      .catch(() => navigate("/auth"));
+      } catch {
+        navigate("/auth");
+      }
+    };
+    checkSession();
   }, []);
 
   const loadWallet = async () => {

@@ -30,17 +30,25 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then(r => r.json())
-      .then(data => setUserName(data?.user?.name || "Acheteur"))
-      .catch(() => setUserName("Acheteur"));
+    const checkSession = async () => {
+      const { authFetch } = await import("@/lib/auth-client");
+      try {
+        const r = await authFetch("/api/auth/session");
+        const data = await r.json();
+        setUserName(data?.user?.name || "Acheteur");
+      } catch {
+        setUserName("Acheteur");
+      }
+    };
+    checkSession();
   }, []);
 
   useEffect(() => {
     const load = async () => {
+      const { authFetch } = await import("@/lib/auth-client");
       let userId = null;
       try {
-        const res = await fetch("/api/auth/session", { cache: "no-store" });
+        const res = await authFetch("/api/auth/session");
         const data = await res.json();
         userId = data?.user?.id || null;
       } catch {}

@@ -10,10 +10,15 @@ export default function OnboardingPage() {
   const [name, setName] = useState("");
 
   useEffect(() => {
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then(r => r.json())
-      .then(data => { if (data?.user?.name) setName(data.user.name); })
-      .catch(() => {});
+    const checkSession = async () => {
+      const { authFetch } = await import("@/lib/auth-client");
+      try {
+        const r = await authFetch("/api/auth/session");
+        const data = await r.json();
+        if (data?.user?.name) setName(data.user.name);
+      } catch {}
+    };
+    checkSession();
   }, []);
 
   const finish = (role) => {

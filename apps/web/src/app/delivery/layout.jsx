@@ -14,10 +14,17 @@ export default function DeliveryLayout({ children }) {
   const isTablet = useIsTablet();
 
   useEffect(() => {
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then(r => r.json())
-      .then(data => setUserName(data?.user?.name || "Livreur"))
-      .catch(() => setUserName("Livreur"));
+    const checkSession = async () => {
+      const { authFetch } = await import("@/lib/auth-client");
+      try {
+        const r = await authFetch("/api/auth/session");
+        const data = await r.json();
+        setUserName(data?.user?.name || "Livreur");
+      } catch {
+        setUserName("Livreur");
+      }
+    };
+    checkSession();
   }, []);
 
   const navItems = [
