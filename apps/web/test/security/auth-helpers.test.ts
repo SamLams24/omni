@@ -1,35 +1,32 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('@/lib/auth-client', () => ({
+  authFetch: vi.fn(),
+}));
+
 describe('auth-helpers', () => {
   beforeEach(() => {
     vi.resetModules();
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('returns null when the server session has no user', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      Response.json({ user: null, session: null }),
-    );
-    vi.stubGlobal('fetch', fetchMock);
+    const { authFetch } = await import('@/lib/auth-client');
+    authFetch.mockResolvedValue(Response.json({ user: null, session: null }));
 
     const { getCurrentUser } = await import('@/lib/auth-helpers');
 
     await expect(getCurrentUser()).resolves.toBeNull();
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/auth/session',
-      { cache: 'no-store' },
-    );
+    expect(authFetch).toHaveBeenCalledWith('/api/auth/session');
   });
 
   it('returns the user validated by the server session', async () => {
+    const { authFetch } = await import('@/lib/auth-client');
     const user = { id: '123', email: 'test@example.com', name: 'Test' };
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(Response.json({ user, session: { id: 's1' } })),
-    );
+    authFetch.mockResolvedValue(Response.json({ user, session: { id: 's1' } }));
 
     const { getCurrentUser } = await import('@/lib/auth-helpers');
 
@@ -37,14 +34,9 @@ describe('auth-helpers', () => {
   });
 
   it('does not use localStorage as an identity fallback', async () => {
-    localStorage.setItem(
-      'omni_user',
-      JSON.stringify({ id: 'client-controlled-user' }),
-    );
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(Response.json({ user: null, session: null })),
-    );
+    localStorage.setItem('omni_user', JSON.stringify({ id: 'client-controlled-user' }));
+    const { authFetch } = await import('@/lib/auth-client');
+    authFetch.mockResolvedValue(Response.json({ user: null, session: null }));
 
     const { getCurrentUser } = await import('@/lib/auth-helpers');
 
@@ -52,7 +44,8 @@ describe('auth-helpers', () => {
   });
 
   it('returns null when the session request fails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+    const { authFetch } = await import('@/lib/auth-client');
+    authFetch.mockRejectedValue(new Error('offline'));
 
     const { getCurrentUser } = await import('@/lib/auth-helpers');
 
@@ -60,39 +53,34 @@ describe('auth-helpers', () => {
   });
 
   it('caches a validated user for the configured TTL', async () => {
+    const { authFetch } = await import('@/lib/auth-client');
     const user = { id: '123' };
-    const fetchMock = vi.fn().mockResolvedValue(Response.json({ user }));
-    vi.stubGlobal('fetch', fetchMock);
+    authFetch.mockResolvedValue(Response.json({ user }));
 
     const { getCurrentUser } = await import('@/lib/auth-helpers');
 
     await expect(getCurrentUser()).resolves.toEqual(user);
     await expect(getCurrentUser()).resolves.toEqual(user);
-    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(authFetch).toHaveBeenCalledOnce();
   });
 
   it('invalidates the cached user explicitly', async () => {
-    const fetchMock = vi
-      .fn()
+    const { authFetch } = await import('@/lib/auth-client');
+    authFetch
       .mockResolvedValueOnce(Response.json({ user: { id: '123' } }))
       .mockResolvedValueOnce(Response.json({ user: null }));
-    vi.stubGlobal('fetch', fetchMock);
 
-    const { getCurrentUser, invalidateUserCache } = await import(
-      '@/lib/auth-helpers'
-    );
+    const { getCurrentUser, invalidateUserCache } = await import('@/lib/auth-helpers');
 
     await expect(getCurrentUser()).resolves.toEqual({ id: '123' });
     invalidateUserCache();
     await expect(getCurrentUser()).resolves.toBeNull();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(authFetch).toHaveBeenCalledTimes(2);
   });
 
   it('derives authentication state from the server-validated user', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(Response.json({ user: { id: '123' } })),
-    );
+    const { authFetch } = await import('@/lib/auth-client');
+    authFetch.mockResolvedValue(Response.json({ user: { id: '123' } }));
 
     const { isAuthenticated } = await import('@/lib/auth-helpers');
 
