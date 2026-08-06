@@ -25,7 +25,7 @@ Basée sur le code réellement présent dans `apps/web` (voir `current-state-aud
 | Panier / commandes (cart) | Oui | Oui | Oui | Oui | Moyenne | Non démarré (Lot 3/7) |
 | Escrow | Oui | Oui | Oui | Oui | Basse | Non démarré (Lot 7) |
 | Recherche texte | Oui (ILIKE PostGIS) | Oui | Oui | Oui | Moyenne | Non démarré (Lot 4) |
-| Internationalisation (fr/en) | Non (texte en dur) | Non | À construire dès Lot 1 | N/A | Haute (demande explicite) | Fondation prévue Lot 1 |
+| Internationalisation (fr/en) | Non (texte en dur) | Non | À construire dès Lot 1 | N/A | Haute (demande explicite) | **Fondation posée** — `/fr` et `/en` fonctionnels, aucun texte en dur, vérifié en runtime |
 
 ## Légende Statut
 

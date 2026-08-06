@@ -26,6 +26,34 @@ The following directories are not production sources:
 Do not add features to a legacy or experimental directory. See
 [`docs/architecture/ADR-001-source-of-truth.md`](docs/architecture/ADR-001-source-of-truth.md).
 
+## Restructuring in progress: `omni-web-frontend` + `omni-backend`
+
+A clean-architecture rewrite is underway on the `refactor/clean-next-nest-architecture`
+branch, targeting a Next.js (TypeScript, App Router) frontend and a NestJS
+(TypeScript, Prisma, PostgreSQL) backend, in a single pnpm workspace at the
+repository root:
+
+```text
+omni-web-frontend/   New frontend (Next.js). Not `omni/apps/nextjs` -- that
+                      directory is the older, unrelated experimental prototype
+                      named in ADR-001 and is not part of this rewrite.
+omni-backend/         New backend (NestJS + Prisma + PostgreSQL).
+apps/web/             Still the production source of truth (see above) --
+                      kept fully functional as a reference until the new
+                      stack reaches feature parity, lot by lot.
+```
+
+See [`docs/architecture/current-state-audit.md`](docs/architecture/current-state-audit.md),
+[`docs/architecture/target-architecture.md`](docs/architecture/target-architecture.md),
+[`docs/architecture/migration-plan.md`](docs/architecture/migration-plan.md), and
+[`docs/architecture/feature-matrix.md`](docs/architecture/feature-matrix.md) for the
+audit, target design, lot-by-lot sequencing, and per-feature migration status.
+Local setup: [`docs/setup/local-development.md`](docs/setup/local-development.md).
+
+`apps/web` is not touched or removed by this restructuring; its own removal
+will only be proposed once the new stack has reached and validated feature
+parity, per ADR-001.
+
 ## Current capabilities
 
 - interactive map and geolocation;

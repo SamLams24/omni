@@ -1,0 +1,17 @@
+{
+  "common": {
+    "appName": "OMNI",
+    "tagline": "Découvrez les entreprises, commerces et services autour de vous"
+  },
+  "nav": {
+    "home": "Accueil",
+    "map": "Carte",
+    "login": "Connexion",
+    "register": "Créer un compte"
+  },
+  "home": {
+    "title": "Découvrez ce qui vous entoure",
+    "subtitle": "OMNI vous connecte aux entreprises, commerces et services autour de votre position, en temps réel.",
+    "cta": "Explorer la carte"
+  }
+}

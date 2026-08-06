@@ -1,0 +1,18 @@
+{
+  "name": "omni",
+  "private": true,
+  "engines": {
+    "node": ">=22 <23",
+    "pnpm": ">=10"
+  },
+  "packageManager": "pnpm@10.18.3",
+  "scripts": {
+    "dev": "pnpm --parallel --filter omni-web-frontend --filter omni-backend dev",
+    "dev:web": "pnpm --filter omni-web-frontend dev",
+    "dev:api": "pnpm --filter omni-backend start:dev",
+    "build": "pnpm --filter omni-backend build && pnpm --filter omni-web-frontend build",
+    "lint": "pnpm --recursive --filter omni-web-frontend --filter omni-backend lint",
+    "typecheck": "pnpm --recursive --filter omni-web-frontend --filter omni-backend typecheck",
+    "test": "pnpm --recursive --filter omni-web-frontend --filter omni-backend test"
+  }
+}

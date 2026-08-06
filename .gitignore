@@ -107,6 +107,17 @@ ios/Pods/Flipper-RSocket
 # Other apps / experiments
 apps/nextjs/
 
+# omni-web-frontend (Next.js)
+omni-web-frontend/.next/
+omni-web-frontend/out/
+omni-web-frontend/.env*.local
+!omni-web-frontend/.env.example
+
+# omni-backend (NestJS)
+omni-backend/dist/
+omni-backend/.env
+!omni-backend/.env.example
+
 # Legacy nested copy: local generated and secret files
 omni/apps/**/.env
 omni/apps/**/.env.*
