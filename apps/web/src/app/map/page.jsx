@@ -1546,7 +1546,12 @@ export default function MapPage() {
         .animate-slide-up {
           animation: slide-up 0.3s ease-out;
         }
-        .maplibregl-control-container {
+        /* Hide MapLibre's built-in Navigation/Fullscreen buttons (top corners) --
+           the app has its own custom controls for those. The bottom-right corner
+           is left alone: it holds the required OpenStreetMap/CartoDB attribution,
+           which must stay visible and must not be blanket-hidden with the rest. */
+        .maplibregl-ctrl-top-left,
+        .maplibregl-ctrl-top-right {
           display: none !important;
         }
         .scrollbar-hide::-webkit-scrollbar {
