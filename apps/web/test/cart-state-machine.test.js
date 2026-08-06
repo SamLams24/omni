@@ -6,13 +6,15 @@ function readSource(relativePath) {
 }
 
 describe("cart state machine integration", () => {
-  it("checks escrow funds before transitioning the cart", () => {
+  it("does not mutate wallets or create escrow holds", () => {
     const source = readSource("../src/app/api/cart/respond/route.js");
 
-    expect(source).toContain("w.balance >= ${amountToHold}");
+    expect(source).toContain('code: "ESCROW_DISABLED"');
     expect(source).toContain("c.status = 'pending'");
     expect(source).toContain("Cart was already processed or changed");
-    expect(source).toContain("status: 402");
+    expect(source).not.toContain("UPDATE wallets");
+    expect(source).not.toContain("INSERT INTO escrow_holds");
+    expect(source).not.toContain("status: 402");
   });
 
   it("updates every cart item from one validated response set", () => {
@@ -32,7 +34,7 @@ describe("cart state machine integration", () => {
     expect(source).toContain("created_delivery AS");
     expect(source).toContain("pg_advisory_xact_lock");
     expect(source).toContain("is_available = true");
-    expect(source).toContain("ENABLE_MOCK_FINANCIAL_FLOWS");
+    expect(source).not.toContain("ENABLE_MOCK_FINANCIAL_FLOWS");
     expect(source).toContain("'awaiting_confirmation'");
     expect(source).toContain("input.unit_price");
   });
@@ -71,7 +73,7 @@ describe("cart state machine integration", () => {
 
     expect(cancel).toContain("WITH transitioned AS");
     expect(cancel).toContain("status IN ('pending', 'confirmed', 'partial', 'denied')");
-    expect(received).toContain("WITH transitioned AS");
+    expect(received).toContain("payment_method = 'cash'");
     expect(received).toContain("status IN ('confirmed', 'partial')");
     expect(received).toContain("Delivery must be completed");
   });

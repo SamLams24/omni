@@ -1,16 +1,17 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { POST as cancelSubscription } from "../src/app/api/subscription/cancel/route.js";
+import { POST as upgradeSubscription } from "../src/app/api/subscriptions/upgrade/route.js";
+import { POST as withdraw } from "../src/app/api/wallet/withdraw/route.js";
+import { POST as disputeEscrow } from "../src/app/api/escrow/dispute/route.js";
+import { POST as refundEscrow } from "../src/app/api/escrow/refund/route.js";
+import { POST as releaseEscrow } from "../src/app/api/escrow/release/route.js";
 
 const financialRouteFiles = [
-  "../src/app/api/escrow/dispute/route.js",
-  "../src/app/api/escrow/refund/route.js",
-  "../src/app/api/escrow/release/route.js",
-  "../src/app/api/subscription/cancel/route.js",
   "../src/app/api/subscriptions/status/route.js",
-  "../src/app/api/subscriptions/upgrade/route.js",
   "../src/app/api/wallet/balance/route.js",
-  "../src/app/api/wallet/deposit/route.js",
-  "../src/app/api/wallet/withdraw/route.js",
+  "../src/app/api/wallet/deposit-intent/route.js",
+  "../src/app/api/wallet/verify-fedapay/route.js",
 ];
 
 const financialClientFiles = [
@@ -43,50 +44,141 @@ describe("financial route authorization", () => {
     },
   );
 
-  it("keeps simulated financial mutations disabled in production", () => {
-    for (const relativePath of financialRouteFiles.filter(
-      (path) => !path.includes("/status/"),
-    )) {
-      expect(readSource(relativePath)).toContain(
-        'requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS")',
-      );
+  it("keeps the legacy deposit endpoint disabled", () => {
+    const source = readSource("../src/app/api/wallet/deposit/route.js");
+
+    expect(source).toContain('code: "FEATURE_DISABLED"');
+    expect(source).not.toContain("INSERT INTO wallets");
+  });
+
+  it("removes the simulated withdrawal mutation", async () => {
+    const route = readSource("../src/app/api/wallet/withdraw/route.js");
+    const walletPage = readSource("../src/app/wallet/page.jsx");
+    const response = await withdraw();
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "WITHDRAWALS_DISABLED",
+    });
+    expect(route).toContain('code: "WITHDRAWALS_DISABLED"');
+    expect(route).toContain('"Cache-Control": "no-store"');
+    expect(route).not.toContain("UPDATE wallets");
+    expect(route).not.toContain("INSERT INTO transactions");
+    expect(route).not.toContain("ENABLE_MOCK_FINANCIAL_FLOWS");
+    expect(walletPage).not.toContain('fetch("/api/wallet/withdraw"');
+    expect(walletPage).not.toContain("Retirer");
+  });
+
+  it.each([
+    ["upgrade", upgradeSubscription],
+    ["cancel", cancelSubscription],
+  ])("keeps subscription %s mutations unavailable", async (_, handler) => {
+    const response = await handler();
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "SUBSCRIPTIONS_DISABLED",
+    });
+  });
+
+  it("removes local subscription billing and activation", () => {
+    const upgrade = readSource(
+      "../src/app/api/subscriptions/upgrade/route.js",
+    );
+    const cancel = readSource("../src/app/api/subscription/cancel/route.js");
+    const page = readSource("../src/app/subscriptions/page.jsx");
+
+    for (const route of [upgrade, cancel]) {
+      expect(route).not.toContain("UPDATE wallets");
+      expect(route).not.toContain("UPDATE users");
+      expect(route).not.toContain("INSERT INTO subscriptions");
+      expect(route).not.toContain("ENABLE_MOCK_FINANCIAL_FLOWS");
     }
+    expect(page).not.toContain('fetch("/api/subscriptions/upgrade"');
+    expect(page).not.toContain("5 000 FCFA");
+    expect(page).not.toContain("1 000 FCFA");
+    expect(page).toContain("Bientôt disponible");
   });
 
-  it("restricts escrow actions to cart participants", () => {
-    const dispute = readSource("../src/app/api/escrow/dispute/route.js");
-    const refund = readSource("../src/app/api/escrow/refund/route.js");
-    const release = readSource("../src/app/api/escrow/release/route.js");
+  it("settles only server-created FedaPay deposit intents", () => {
+    const createIntent = readSource(
+      "../src/app/api/wallet/deposit-intent/route.js",
+    );
+    const verify = readSource("../src/app/api/wallet/verify-fedapay/route.js");
+    const settlement = readSource("../src/lib/wallet-deposits.js");
 
-    expect(dispute).toContain("c.buyer_id = ${userId}");
-    expect(dispute).toContain("v.user_id = ${userId}");
-    expect(refund).toContain("v.user_id = ${userId}");
-    expect(release).toContain("c.buyer_id = ${userId}");
+    expect(createIntent).toContain("omni_deposit_intent_id");
+    expect(createIntent).toContain('currency: { iso: "XOF" }');
+    expect(verify).toContain("settleFedaPayDeposit");
+    expect(settlement).toContain('transaction.status !== "approved"');
+    expect(settlement).toContain("Transaction ownership mismatch");
+    expect(settlement).toContain("ON CONFLICT (user_id) DO NOTHING");
+    expect(settlement).toContain("claimed_intent AS");
+    expect(settlement).toContain("recorded_tx AS");
+    expect(settlement).toContain("credited_wallet AS");
+    expect(settlement).toContain(
+      "ON CONFLICT (reference) WHERE reference IS NOT NULL DO NOTHING",
+    );
+    expect(settlement).not.toContain("completed");
+    expect(settlement).not.toContain('"paid"');
   });
 
-  it("charges subscriptions before activating their tier", () => {
-    const source = readSource("../src/app/api/subscriptions/upgrade/route.js");
+  it("authenticates FedaPay webhooks before reusing deposit settlement", () => {
+    const webhook = readSource(
+      "../src/app/api/webhooks/fedapay/route.js",
+    );
 
-    expect(source).toContain("WITH debited AS");
-    expect(source).toContain("balance >= ${fee}");
-    expect(source).toContain("EXISTS (SELECT 1 FROM subscribed)");
-    expect(source).not.toContain("INSERT INTO users");
+    expect(webhook).toContain("request.text()");
+    expect(webhook).toContain('request.headers.get("x-fedapay-signature")');
+    expect(webhook).toContain("constructFedaPayWebhookEvent");
+    expect(webhook).toContain("settleFedaPayDeposit");
+    expect(webhook).not.toContain("request.json()");
+    expect(webhook).not.toContain("getAuthenticatedUser");
   });
 
-  it("stores the vendor id, not the facility id, in escrow", () => {
-    const source = readSource("../src/app/api/cart/respond/route.js");
+  it.each([
+    ["dispute", disputeEscrow],
+    ["refund", refundEscrow],
+    ["release", releaseEscrow],
+  ])("keeps escrow %s unavailable", async (_, handler) => {
+    const response = await handler();
 
-    expect(source).toContain("INSERT INTO escrow_holds");
-    expect(source).toContain("${cart.vendor_id}");
-    expect(source).toContain("'escrow_hold', ${total}");
-    expect(source).not.toContain("${cart.facility_id}, ${total}");
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "ESCROW_DISABLED",
+    });
   });
 
-  it("keeps the escrow schema and release transition aligned", () => {
-    const schema = readSource("../db/migrations/0001_baseline.sql");
-    const received = readSource("../src/app/api/cart/[id]/received/route.js");
+  it("removes simulated escrow mutations and client selection", () => {
+    const escrowRoutes = ["dispute", "refund", "release"].map((action) =>
+      readSource(`../src/app/api/escrow/${action}/route.js`)
+    );
+    const cartRoutes = [
+      "../src/app/api/cart/respond/route.js",
+      "../src/app/api/cart/[id]/received/route.js",
+      "../src/app/api/cart/[id]/cancel/route.js",
+    ].map(readSource);
+    const deliveryConfirm = readSource(
+      "../src/app/api/delivery/confirm/route.js",
+    );
+    const cartPanel = readSource("../src/components/CartPanel.jsx");
 
-    expect(schema).toContain("'held', 'disputed', 'released', 'refunded'");
-    expect(received).toContain("SET status = 'released'");
+    for (const route of escrowRoutes) {
+      expect(route).not.toContain("getAuthenticatedUser");
+      expect(route).not.toContain("@/app/api/utils/sql");
+    }
+    for (const route of [...escrowRoutes, ...cartRoutes]) {
+      expect(route).not.toContain("UPDATE wallets");
+      expect(route).not.toContain("INSERT INTO escrow_holds");
+      expect(route).not.toContain("ENABLE_MOCK_FINANCIAL_FLOWS");
+    }
+    expect(deliveryConfirm).toContain('code: "ESCROW_DISABLED"');
+    expect(deliveryConfirm).not.toContain("UPDATE escrow_holds");
+    expect(cartPanel).toContain('paymentMethod: "cash"');
+    expect(cartPanel).not.toContain('setPaymentMethod("escrow")');
+    expect(cartPanel).not.toContain("Balance disponible");
   });
 });

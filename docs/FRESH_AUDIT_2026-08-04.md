@@ -66,16 +66,24 @@ headers: { "x-user-id": userId }
 
 ### 3. Financial Operations with Mock Logic (Severity: CRITICAL)
 
-**Location:** `src/app/api/wallet/deposit/route.js`, `withdraw/route.js`
+**Location audited:** `src/app/api/wallet/deposit/route.js`, `withdraw/route.js`
 
-**Current Status:** Protected by `requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS")` — correctly disabled in production.
+**Remediation status:** The simulated deposit was replaced by provider-verified,
+idempotent FedaPay settlement. The simulated withdrawal debit was removed and
+the endpoint now always fails closed until a payout provider is integrated.
 
-**Risk:** If accidentally enabled in production:
-- Fake deposits modify real database balances
-- No idempotency protection
-- No actual payment provider integration
+**Historical risk resolved:** The old routes could mutate wallet balances
+without a verified provider transaction and without idempotency. No simulated
+deposit or withdrawal balance mutation remains reachable.
 
-**Required Fix:** Remove mock logic entirely. Implement proper payment provider integration (Stripe, MTN MoMo API, Orange Money).
+**Remaining work:** Integrate and verify a payout provider before enabling
+withdrawals. Local subscription billing and activation have also been removed;
+the module requires a dedicated, provider-verified billing design. Simulated
+escrow mutations and their client-side payment choice have been removed. The
+simulated courier wallet credit has also been removed; a real provider-backed
+payout design is still required before courier settlement can be introduced.
+The in-memory delivery position simulator has been removed as well; real-time
+tracking now requires a dedicated authenticated location-ingestion design.
 
 ---
 

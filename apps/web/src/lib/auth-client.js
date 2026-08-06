@@ -107,3 +107,19 @@ export async function checkAuth() {
   const { user } = await getSession();
   return !!user;
 }
+
+export async function syncAuthSession() {
+  try {
+    const client = getAuthClient();
+    const { data: tokenData } = await client.token();
+
+    if (tokenData?.token) {
+      await setSessionCookie(tokenData.token);
+      const res = await fetch('/api/auth/session', { cache: 'no-store' });
+      return res.json();
+    }
+  } catch {
+    console.error('[Auth] Failed to sync session');
+  }
+  return { user: null, session: null };
+}

@@ -17,13 +17,12 @@ const requests = [
 ];
 
 describe("cart response state", () => {
-  it("confirms every item and computes the escrow total", () => {
+  it("confirms every item and computes the order total", () => {
     expect(
       buildCartResponse(requests, { confirmAll: true }),
     ).toMatchObject({
       cartStatus: "confirmed",
       total: 3500,
-      fee: 35,
     });
   });
 
@@ -59,7 +58,7 @@ describe("cart response state", () => {
 
     expect(result.cartStatus).toBe("denied");
     expect(result.total).toBe(0);
-    expect(result.fee).toBe(0);
+    expect(result).not.toHaveProperty("fee");
   });
 
   it("requires one response for every item", () => {

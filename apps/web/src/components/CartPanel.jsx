@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { X, ShoppingBag, Plus, Minus, Trash2, Send, Loader2, CreditCard, DollarSign, Bike, MapPin, Navigation, CheckCircle } from "lucide-react";
+import { X, ShoppingBag, Plus, Minus, Trash2, Send, Loader2, DollarSign, MapPin, Navigation, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 
 const CART_KEY = "omni_cart";
@@ -24,7 +24,6 @@ export default function CartPanel({ isOpen, onClose, onItemCountChange }) {
   const [cart, setCart] = useState({ items: [] });
   const [selectedFacility, setSelectedFacility] = useState(null);
   const [sending, setSending] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("cash");
   const [deliveryMode, setDeliveryMode] = useState({});
   const [dropoffAddresses, setDropoffAddresses] = useState({});
   const [dropoffCoords, setDropoffCoords] = useState({});
@@ -108,7 +107,7 @@ export default function CartPanel({ isOpen, onClose, onItemCountChange }) {
           productId: item.productId,
           quantity: item.quantity,
         })),
-        paymentMethod,
+        paymentMethod: "cash",
         ...(useDelivery ? {
           delivery: true,
           dropoffAddress: dropoffAddresses[facilityId] || "",
@@ -353,35 +352,10 @@ export default function CartPanel({ isOpen, onClose, onItemCountChange }) {
         {total > 0 && (
           <div className="px-5 py-3 border-t border-white/10 bg-white/[0.02]">
             <label className="text-xs text-white/30 mb-2 block">Mode de paiement</label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPaymentMethod("cash")}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all ${
-                  paymentMethod === "cash"
-                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                    : "bg-white/5 text-white/40 border border-white/10 hover:bg-white/10"
-                }`}
-              >
-                <DollarSign size={12} />
-                Cash
-              </button>
-              <button
-                onClick={() => setPaymentMethod("escrow")}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all ${
-                  paymentMethod === "escrow"
-                    ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                    : "bg-white/5 text-white/40 border border-white/10 hover:bg-white/10"
-                }`}
-              >
-                <CreditCard size={12} />
-                Balance
-              </button>
+            <div className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-400">
+              <DollarSign size={12} />
+              Paiement en espèces
             </div>
-            {paymentMethod === "escrow" && (
-              <p className="text-[10px] text-amber-400/60 mt-1.5 flex items-center gap-1">
-                ⚠️ Balance disponible uniquement pour les vendeurs Premium
-              </p>
-            )}
           </div>
         )}
 

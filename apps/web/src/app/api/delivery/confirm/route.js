@@ -1,5 +1,4 @@
 import sql from "@/app/api/utils/sql";
-import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
 import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request) {
@@ -10,19 +9,14 @@ export async function POST(request) {
     }
     const userId = user.id;
 
-    const disabled = requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS");
-    if (disabled) return disabled;
-
     const body = await request.json();
     const { requestId } = body;
     if (!requestId) {
       return Response.json({ error: "requestId is required" }, { status: 400 });
     }
 
-    // Verify delivery person owns this request and it's in a valid status
     const deliveryReqs = await sql`
-      SELECT dr.id, dr.cart_id, dr.status, dr.delivery_fee, dr.buyer_id, dr.facility_id,
-        c.payment_method, c.status as cart_status
+      SELECT dr.id, dr.status, c.payment_method, c.status AS cart_status
       FROM delivery_requests dr
       JOIN carts c ON c.id = dr.cart_id
       WHERE dr.id = ${requestId} AND dr.delivery_profile_id = (
@@ -34,55 +28,84 @@ export async function POST(request) {
     }
 
     const req = deliveryReqs[0];
+    if (req.payment_method !== "cash") {
+      return Response.json(
+        {
+          error: "Le paiement escrow n’est pas disponible.",
+          code: "ESCROW_DISABLED",
+        },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     if (!["matched", "picked_up", "in_transit"].includes(req.status)) {
-      return Response.json({ error: `Cannot confirm delivery: status is '${req.status}'` }, { status: 400 });
+      return Response.json(
+        { error: `Cannot confirm delivery: status is '${req.status}'` },
+        { status: 409 },
+      );
+    }
+    if (!["confirmed", "partial"].includes(req.cart_status)) {
+      return Response.json(
+        { error: "Cart is not ready for delivery completion" },
+        { status: 409 },
+      );
     }
 
-    // Update delivery_request to delivered
-    await sql`
-      UPDATE delivery_requests SET status = 'delivered', updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${requestId}
+    const completed = await sql`
+      WITH delivered AS (
+        UPDATE delivery_requests dr
+        SET status = 'delivered', updated_at = CURRENT_TIMESTAMP
+        WHERE dr.id = ${requestId}
+          AND dr.delivery_profile_id = (
+            SELECT id FROM delivery_profiles WHERE user_id = ${userId}
+          )
+          AND dr.status IN ('matched', 'picked_up', 'in_transit')
+          AND EXISTS (
+            SELECT 1
+            FROM carts c
+            WHERE c.id = dr.cart_id
+              AND c.payment_method = 'cash'
+              AND c.status IN ('confirmed', 'partial')
+          )
+        RETURNING dr.id, dr.cart_id, dr.buyer_id
+      ),
+      completed_cart AS (
+        UPDATE carts c
+        SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+        FROM delivered d
+        WHERE c.id = d.cart_id
+          AND c.payment_method = 'cash'
+          AND c.status IN ('confirmed', 'partial')
+        RETURNING c.id
+      ),
+      notified AS (
+        INSERT INTO notifications (user_id, type, title, message, link)
+        SELECT
+          d.buyer_id,
+          'delivery',
+          'Livraison confirmée',
+          'Votre colis a été livré',
+          '/cart/history'
+        FROM delivered d
+        RETURNING id
+      )
+      SELECT
+        d.id,
+        EXISTS (SELECT 1 FROM completed_cart) AS cart_completed,
+        EXISTS (SELECT 1 FROM notified) AS notification_created
+      FROM delivered d
     `;
-
-    // Pay delivery person
-    const deliveryFee = parseFloat(req.delivery_fee) || 500;
-    const profileWallets = await sql`
-      SELECT w.id FROM wallets w
-      JOIN delivery_profiles dp ON dp.user_id = w.user_id
-      WHERE dp.user_id = ${userId}
-    `;
-    if (profileWallets.length > 0) {
-      await sql`
-        UPDATE wallets SET balance = balance + ${deliveryFee}, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ${profileWallets[0].id}
-      `;
-      await sql`
-        INSERT INTO transactions (wallet_id, type, amount, reference)
-        VALUES (${profileWallets[0].id}, 'delivery_payment', ${deliveryFee}, ${`Paiement livraison #${requestId}`})
-      `;
+    if (
+      completed.length === 0
+      || !completed[0].cart_completed
+      || !completed[0].notification_created
+    ) {
+      return Response.json(
+        { error: "Delivery was already completed or changed" },
+        { status: 409 },
+      );
     }
 
-    // Handle payment method
-    if (req.payment_method === 'cash') {
-      await sql`
-        UPDATE carts SET status = 'completed', completed_at = CURRENT_TIMESTAMP
-        WHERE id = ${req.cart_id}
-      `;
-    } else if (req.payment_method === 'escrow') {
-      await sql`
-        UPDATE escrow_holds SET delivery_confirmed_at = CURRENT_TIMESTAMP
-        WHERE cart_id = ${req.cart_id} AND released_at IS NULL AND refunded_at IS NULL
-      `;
-    }
-
-    // Notify buyer
-    await sql`
-      INSERT INTO notifications (user_id, type, title, message, link)
-      VALUES (${req.buyer_id}, 'delivery', 'Livraison confirmée',
-        'Votre colis a été livré', '/cart/history')
-    `;
-
-    return Response.json({ success: true, deliveryFee });
+    return Response.json({ success: true });
   } catch (error) {
     console.error("Error confirming delivery:", error);
     return Response.json({ error: "Internal server error" }, { status: 500 });

@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
-import { ArrowLeft, Wallet, Plus, ArrowUpRight, ArrowDownRight, Clock, Loader2, Minus, Smartphone, Bitcoin } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowLeft, Wallet, Plus, ArrowUpRight, ArrowDownRight, Clock, Loader2 } from "lucide-react";
 import DepositModal from "@/components/DepositModal";
 
 export default function WalletPage() {
@@ -12,9 +11,6 @@ export default function WalletPage() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showDeposit, setShowDeposit] = useState(false);
-  const [showWithdraw, setShowWithdraw] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -94,65 +90,14 @@ export default function WalletPage() {
               <Plus size={12} />
               Recharger
             </button>
-            <button onClick={() => setShowWithdraw(!showWithdraw)}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-white/50 text-xs font-medium hover:bg-white/10 transition-all"
-            >
-              <Minus size={12} />
-              Retirer
-            </button>
           </div>
+          <p className="mt-3 text-[11px] text-white/30">
+            Les retraits Mobile Money seront disponibles après l’intégration du fournisseur de décaissement.
+          </p>
         </div>
 
         {/* Deposit modal */}
         <DepositModal isOpen={showDeposit} onClose={() => setShowDeposit(false)} onDone={loadWallet} />
-
-        {/* Withdraw form */}
-        {showWithdraw && (
-          <div className="bg-white/[0.02] rounded-xl border border-white/10 p-4 mb-6 space-y-3">
-            <input type="number" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)}
-              placeholder="Montant (FCFA)" className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white/70 placeholder-white/30 outline-none" />
-            <div className="flex gap-2">
-              <button onClick={async () => {
-                const amount = parseFloat(withdrawAmount);
-                if (!amount || amount <= 0) { toast("Montant invalide"); return; }
-                setSending(true);
-                try {
-                  const res = await fetch("/api/wallet/withdraw", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ amount, method: "mobile_money" }),
-                  });
-                  if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
-                  toast(`${amount.toLocaleString()} FCFA retirés !`);
-                  setShowWithdraw(false);
-                  setWithdrawAmount("");
-                  loadWallet();
-                } catch (err) { toast(err.message || "Erreur"); } finally { setSending(false); }
-              }} disabled={sending}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-all disabled:opacity-30"
-              >{sending ? <Loader2 size={12} className="animate-spin" /> : <Smartphone size={14} />} Mobile Money</button>
-              <button onClick={async () => {
-                const amount = parseFloat(withdrawAmount);
-                if (!amount || amount <= 0) { toast("Montant invalide"); return; }
-                setSending(true);
-                try {
-                  const res = await fetch("/api/wallet/withdraw", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ amount, method: "crypto" }),
-                  });
-                  if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
-                  toast(`${amount.toLocaleString()} FCFA retirés !`);
-                  setShowWithdraw(false);
-                  setWithdrawAmount("");
-                  loadWallet();
-                } catch (err) { toast(err.message || "Erreur"); } finally { setSending(false); }
-              }} disabled={sending}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-medium hover:bg-purple-500/20 transition-all disabled:opacity-30"
-              >{sending ? <Loader2 size={12} className="animate-spin" /> : <Bitcoin size={14} />} Crypto</button>
-            </div>
-          </div>
-        )}
 
         {/* Transactions */}
         <h2 className="text-sm text-white/60 font-medium mb-3">Dernières transactions</h2>

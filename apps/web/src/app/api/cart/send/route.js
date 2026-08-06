@@ -1,6 +1,5 @@
 import sql from "@/app/api/utils/sql";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { requireNonProductionFeature } from "@/app/api/utils/runtime-flags";
 import {
   calculateDeliveryFee,
   CartInputError,
@@ -25,11 +24,6 @@ export async function POST(request) {
       dropoffLat,
       dropoffLon,
     } = parseCartCreationInput(await request.json());
-
-    if (paymentMethod === "escrow") {
-      const disabled = requireNonProductionFeature("ENABLE_MOCK_FINANCIAL_FLOWS");
-      if (disabled) return disabled;
-    }
 
     // Get facility and vendor info
     const facility = await sql`
@@ -71,21 +65,6 @@ export async function POST(request) {
     const deliveryFee = wantsDelivery
       ? calculateDeliveryFee(pickupLat, pickupLon, dropLat, dropLon)
       : 0;
-
-    // Check vendor tier: escrow only for premium vendors
-    if (paymentMethod === "escrow") {
-      const vendorUser = await sql`
-        SELECT vendor_tier FROM users WHERE id = (
-          SELECT user_id FROM vendors WHERE id = ${vendorId}
-        )
-      `;
-      if (vendorUser.length === 0 || vendorUser[0].vendor_tier !== "premium") {
-        return Response.json(
-          { error: "This vendor only accepts cash. Payment balance is not available on the free plan." },
-          { status: 403 },
-        );
-      }
-    }
 
     const itemsJson = JSON.stringify(items);
     const created = await sql`

@@ -28,7 +28,7 @@ export function parseCartCreationInput(body) {
   ) {
     throw new CartInputError("facilityId and items are required");
   }
-  if (!["cash", "escrow"].includes(selectedPaymentMethod)) {
+  if (selectedPaymentMethod !== "cash") {
     throw new CartInputError("Invalid payment method");
   }
 

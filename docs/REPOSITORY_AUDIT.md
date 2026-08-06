@@ -11,10 +11,34 @@
 - ✅ Removed all `localStorage.setItem('omni_user')` calls
 - ✅ Replaced AuthGuard localStorage check with session validation
 - ✅ Added comprehensive security regression tests
+- ✅ Restored reproducible pnpm installation and CI gates
+- ✅ Added versioned database migrations and Playwright smoke tests
+- ✅ Replaced mock wallet deposits with provider-verified FedaPay settlement
+- ✅ Removed the simulated withdrawal debit and its misleading client action;
+  withdrawals now fail closed until a payout provider is integrated
+- ✅ Removed local subscription billing, activation, and cancellation; the
+  pricing UI no longer presents unvalidated prices or actionable payment CTAs
+- ✅ Removed simulated escrow holds, releases, refunds, and disputes; cart
+  creation is cash-only and historical escrow carts fail closed before mutation
+- ✅ Removed simulated courier wallet credits while preserving atomic delivery
+  and cash-cart completion
+- ✅ Removed the in-memory delivery position simulator; the tracking endpoint
+  now fails closed until authenticated real-time location updates exist
+- ✅ Cleared critical production dependency advisories by constraining the
+  Neon Auth chain to patched Better Auth and Vitest versions, while preventing
+  resolution of the vulnerable Next.js peer version
+- ✅ Reduced high-severity dependency advisories from 14 to the single
+  React Router RSC advisory by patching the router, HTTP runtime, WebSocket,
+  CSS, build, and glob-expansion dependency families
 
 ### Remaining
-- ⚠️ Financial operations still use mock logic (protected by feature flag)
-- ⚠️ No E2E tests for critical user journeys
+- ⚠️ One high-severity React Router advisory remains. It affects the optional
+  RSC mode, which Omni does not enable; its upstream fix requires the breaking
+  React Router 8 migration and must be handled as a dedicated upgrade
+- ⚠️ Existing credentials exposed in Git history must be rotated outside the
+  repository
+- ⚠️ E2E coverage exists for the map shell but not yet for every critical
+  authenticated and financial journey
 
 ## Executive summary
 

@@ -2,15 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
-import { ArrowLeft, Store, Truck, Crown, Check, Loader2, Wallet } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowLeft, Store, Truck, Crown, Check, Loader2 } from "lucide-react";
 
 export default function SubscriptionsPage() {
   const navigate = useNavigate();
   const [vendorTier, setVendorTier] = useState("free");
   const [deliveryTier, setDeliveryTier] = useState("free");
-  const [balance, setBalance] = useState(0);
-  const [sending, setSending] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,36 +27,13 @@ export default function SubscriptionsPage() {
 
   const loadData = async () => {
     try {
-      const [subRes, walRes] = await Promise.all([
-        fetch("/api/subscriptions/status"),
-        fetch("/api/wallet/balance"),
-      ]);
+      const subRes = await fetch("/api/subscriptions/status");
       if (subRes.ok) {
         const sd = await subRes.json();
         setVendorTier(sd.vendorTier || "free");
         setDeliveryTier(sd.deliveryTier || "free");
       }
-      if (walRes.ok) {
-        const wd = await walRes.json();
-        setBalance(wd.balance || 0);
-      }
     } catch {} finally { setLoading(false); }
-  };
-
-  const upgrade = async (type) => {
-    setSending(type);
-    try {
-      const fee = type === "vendor" ? 5000 : 1000;
-      if (balance < fee) { toast("Solde insuffisant — recharge d'abord"); setSending(null); return; }
-      const res = await fetch("/api/subscriptions/upgrade", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, tier: "premium" }),
-      });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
-      toast(`Abonnement ${type === "vendor" ? "vendeur" : "livreur"} activé !`);
-      loadData();
-    } catch (err) { toast(err.message || "Erreur"); } finally { setSending(null); }
   };
 
   if (loading) {
@@ -83,12 +57,11 @@ export default function SubscriptionsPage() {
           </div>
         </div>
 
-        {/* Balance reminder */}
-        <Link to="/wallet" className="flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 mb-6 hover:bg-emerald-500/10 transition-all">
-          <Wallet size={14} className="text-emerald-400" />
-          <span className="text-xs text-emerald-400/70">Solde : <strong className="text-emerald-400">{balance.toLocaleString()} FCFA</strong></span>
-          <span className="text-[10px] text-emerald-400/40 ml-auto">Recharger →</span>
-        </Link>
+        <div className="px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/10 mb-6">
+          <p className="text-xs text-amber-200/70">
+            Les offres Premium sont en cours de finalisation. Aucun paiement ni changement de formule n’est actuellement proposé.
+          </p>
+        </div>
 
         {/* Vendor subscription */}
         <div className={`rounded-2xl border p-5 mb-4 ${vendorTier === "premium" ? "border-emerald-500/30 bg-emerald-500/5" : "border-white/10 bg-white/[0.02]"}`}>
@@ -99,7 +72,7 @@ export default function SubscriptionsPage() {
               <ul className="mt-3 space-y-1.5">
                 {[
                   { free: "1 facility, 5 produits", prem: "Facilities & produits illimités" },
-                  { free: "Cash uniquement", prem: "Cash + escrow (encaissement wallet)" },
+                  { free: "Fonctions essentielles", prem: "Fonctions avancées vendeur" },
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs">
                     <Check size={10} className={`mt-0.5 shrink-0 ${vendorTier === "premium" ? "text-emerald-400" : "text-white/20"}`} />
@@ -110,11 +83,10 @@ export default function SubscriptionsPage() {
             </div>
           </div>
           {vendorTier !== "premium" && (
-            <button onClick={() => upgrade("vendor")} disabled={sending === "vendor"}
-              className="w-full mt-4 py-2.5 rounded-xl bg-emerald-500 text-black text-sm font-medium hover:bg-emerald-400 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+            <button type="button" disabled
+              className="w-full mt-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/40 text-sm font-medium cursor-not-allowed"
             >
-              {sending === "vendor" ? <Loader2 size={14} className="animate-spin" /> : null}
-              5 000 FCFA / mois
+              Bientôt disponible
             </button>
           )}
         </div>
@@ -139,11 +111,10 @@ export default function SubscriptionsPage() {
             </div>
           </div>
           {deliveryTier !== "premium" && (
-            <button onClick={() => upgrade("delivery")} disabled={sending === "delivery"}
-              className="w-full mt-4 py-2.5 rounded-xl bg-emerald-500 text-black text-sm font-medium hover:bg-emerald-400 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+            <button type="button" disabled
+              className="w-full mt-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/40 text-sm font-medium cursor-not-allowed"
             >
-              {sending === "delivery" ? <Loader2 size={14} className="animate-spin" /> : null}
-              1 000 FCFA / mois
+              Bientôt disponible
             </button>
           )}
         </div>
