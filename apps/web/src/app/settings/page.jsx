@@ -22,23 +22,27 @@ export default function SettingsPage() {
     const loadProfile = async () => {
       try {
         const { authFetch } = await import("@/lib/auth-client");
-        const res = await authFetch("/api/auth/session");
-        const data = await res.json();
-        if (!data?.user) {
+        const sessionRes = await authFetch("/api/auth/session");
+        const sessionData = await sessionRes.json();
+        if (!sessionData?.user) {
           navigate("/auth");
           return;
         }
-        setUser(data.user);
+        setUser(sessionData.user);
 
-      const res = await fetch("/api/user/profile");
-      const data = await res.json();
-      if (data.user) {
-        setForm({ name: data.user.name || "", phone: data.user.phone || "" });
-        if (data.user.lat && data.user.lon) {
-          setLocation({ lat: data.user.lat, lon: data.user.lon });
+        const res = await fetch("/api/user/profile");
+        const data = await res.json();
+        if (data.user) {
+          setForm({ name: data.user.name || "", phone: data.user.phone || "" });
+          if (data.user.lat && data.user.lon) {
+            setLocation({ lat: data.user.lat, lon: data.user.lon });
+          }
         }
+      } catch (e) {
+        console.error("Failed to load profile:", e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     loadProfile();
   }, [navigate]);
