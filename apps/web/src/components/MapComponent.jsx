@@ -7,6 +7,12 @@ const importLeafletCSS = () => import("leaflet/dist/leaflet.css");
 // Dynamic import disabled to prevent SSR issues
 // const importRoutingMachine = () => import("leaflet-routing-machine");
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[ch]));
+}
+
 // Fix Leaflet default icon (will be applied after dynamic import)
 let leafletIconFixed = false;
 const fixLeafletIcon = (L) => {
@@ -32,6 +38,15 @@ export default function MapComponent({ center, zoom, markers = [], onVendorClick
 
   useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -92,7 +107,7 @@ export default function MapComponent({ center, zoom, markers = [], onVendorClick
         markersRef.current.push(userMarker);
 
         // Add vendor markers (red with animations)
-        markers.slice(0, 8).forEach((vendor, index) => {
+        markers.forEach((vendor, index) => {
           const isOnline = vendor.is_online !== false; // Default to online
           const markerColor = isOnline ? "#EF4444" : "#9CA3AF";
           const statusIcon = isOnline ? "🟢" : "⚫";
@@ -150,19 +165,19 @@ export default function MapComponent({ center, zoom, markers = [], onVendorClick
                 <div style="font-size: 16px;">🏪</div>
               </div>
               
-              <div style="font-weight: bold; color: #1F2937; margin-bottom: 4px;">${vendor.name}</div>
-              <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px;">${vendor.category}</div>
+              <div style="font-weight: bold; color: #1F2937; margin-bottom: 4px;">${escapeHtml(vendor.name)}</div>
+              <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px;">${escapeHtml(vendor.category)}</div>
               <div style="font-size: 11px; color: #9CA3AF; margin-bottom: 8px;">📍 ${Math.round(vendor.distance)}m • ⏱️ ${Math.round(vendor.distance/60)}min à pied</div>
-              
+
               <div style="margin: 8px 0; padding: 8px; background: #F9FAFB; border-radius: 8px;">
                 <div style="font-size: 12px; margin-bottom: 4px; color: #374151;">📦 Produits disponibles:</div>
-                ${vendor.products ? vendor.products.slice(0, 3).map(p => 
-                  `<div style="font-size: 11px; margin: 2px 0; color: #6B7280;">• ${p.name} - <span style="color: #059669; font-weight: bold;">${p.price} FCFA</span></div>`
+                ${vendor.products ? vendor.products.slice(0, 3).map(p =>
+                  `<div style="font-size: 11px; margin: 2px 0; color: #6B7280;">• ${escapeHtml(p.name)} - <span style="color: #059669; font-weight: bold;">${escapeHtml(p.price)} FCFA</span></div>`
                 ).join('') : '<div style="font-size: 11px; color: #9CA3AF;">🔄 Chargement...</div>'}
               </div>
-              
-              <button 
-                onclick="window.checkAvailability('${vendor.id}')" 
+
+              <button
+                class="check-availability-btn"
                 style="
                   background: linear-gradient(135deg, #10B981, #059669); 
                   color: white; 
@@ -182,7 +197,16 @@ export default function MapComponent({ center, zoom, markers = [], onVendorClick
                 ✅ Vérifier disponibilité
               </button>
             </div>
-          `).addTo(mapInstanceRef.current);
+          `).on('popupopen', () => {
+            // Attach the handler programmatically (never via an inline
+            // onclick string) so vendor.id never crosses an HTML/JS
+            // attribute boundary.
+            const popupNode = vendorMarker.getPopup()?.getElement();
+            const button = popupNode?.querySelector('.check-availability-btn');
+            if (button && onVendorClick) {
+              button.onclick = () => onVendorClick(vendor);
+            }
+          }).addTo(mapInstanceRef.current);
           markersRef.current.push(vendorMarker);
         });
 

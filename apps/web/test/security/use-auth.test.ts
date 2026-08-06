@@ -21,12 +21,12 @@ describe('useAuth localStorage removal', () => {
     expect(removeItemMatches).toBeNull();
   });
 
-  it('should use getSession from auth-client', () => {
+  it('should use authFetch from auth-client', () => {
     const filePath = join(process.cwd(), 'src/utils/useAuth.js');
     const content = readFileSync(filePath, 'utf-8');
-    
-    // Should use getSession from auth-client
-    expect(content).toContain('getSession');
+
+    // Should use authFetch from auth-client, not a raw fetch/localStorage session check
+    expect(content).toContain('authFetch');
     expect(content).toContain('auth-client');
   });
 });

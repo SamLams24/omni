@@ -26,7 +26,16 @@ const facilityFields = `
     SELECT COUNT(*)
     FROM reviews r
     WHERE r.facility_id = f.id
-  ) AS review_count
+  ) AS review_count,
+  v.kyc_status,
+  (v.user_id IS NOT NULL) AS claimed,
+  EXISTS (
+    SELECT 1 FROM subscriptions s
+    WHERE s.user_id = v.user_id
+      AND s.type = 'vendor'
+      AND s.status = 'active'
+      AND (s.end_date IS NULL OR s.end_date > CURRENT_TIMESTAMP)
+  ) AS subscription_active
 `;
 
 const facilityJoins = `
@@ -44,7 +53,7 @@ const facilityAvailability = `
 const facilityGroup = `
   GROUP BY
     f.id, f.name, f.category, f.description, f.type,
-    f.is_online, f.rating, f.location, v.id, v.name
+    f.is_online, f.rating, f.location, v.id, v.name, v.kyc_status, v.user_id
 `;
 
 export async function findNearbyFacilities({ lat, lon, radius, limit }) {
