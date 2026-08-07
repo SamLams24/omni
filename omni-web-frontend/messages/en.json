@@ -1,18 +1,177 @@
 {
   "common": {
     "appName": "OMNI",
-    "tagline": "Discover businesses, shops and services around you"
+    "tagline": "Discover businesses, shops and services around you",
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "back": "Back",
+    "comingSoon": "This feature is currently under development. It will be available on OMNI soon."
   },
   "nav": {
     "home": "Home",
     "map": "Map",
     "login": "Log in",
-    "register": "Create account"
+    "register": "Create account",
+    "logout": "Log out",
+    "seller": "Seller",
+    "buyer": "Buyer",
+    "admin": "Admin",
+    "delivery": "Delivery"
   },
   "home": {
     "title": "Discover what's around you",
     "subtitle": "OMNI connects you to businesses, shops and services near your location, in real time.",
     "cta": "Explore the map"
+  },
+  "auth": {
+    "login": {
+      "title": "Log in",
+      "subtitle": "Welcome back to OMNI",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Log in",
+      "submitting": "Logging in...",
+      "noAccount": "Don't have an account?",
+      "registerLink": "Create one"
+    },
+    "register": {
+      "title": "Create your account",
+      "subtitle": "Join OMNI to discover businesses around you",
+      "name": "Full name",
+      "email": "Email",
+      "password": "Password",
+      "passwordHint": "At least 8 characters",
+      "submit": "Create account",
+      "submitting": "Creating account...",
+      "hasAccount": "Already have an account?",
+      "loginLink": "Log in"
+    }
+  },
+  "business": {
+    "status": {
+      "UNCONFIRMED": "Unconfirmed",
+      "CONFIRMED": "Confirmed",
+      "CERTIFIED": "Certified"
+    },
+    "statusDescription": {
+      "UNCONFIRMED": "This listing has not been verified by OMNI.",
+      "CONFIRMED": "This business has been verified by OMNI.",
+      "CERTIFIED": "This business is verified and holds an active OMNI premium subscription."
+    },
+    "source": {
+      "osm": "From OpenStreetMap",
+      "omni": "OMNI business"
+    },
+    "fields": {
+      "phone": "Phone",
+      "address": "Address",
+      "website": "Website",
+      "openingHours": "Opening hours",
+      "category": "Category"
+    }
+  },
+  "map": {
+    "title": "Map",
+    "loading": "Loading nearby places...",
+    "empty": "No places found in this area. Try zooming out or panning the map.",
+    "attribution": "Map data",
+    "attributionOsm": "OpenStreetMap contributors"
+  },
+  "seller": {
+    "dashboard": {
+      "title": "Seller dashboard",
+      "myBusinesses": "My businesses",
+      "noBusinesses": "You don't have any business yet.",
+      "createBusiness": "Add a business",
+      "mySubscriptions": "My subscriptions",
+      "noSubscriptions": "No subscription yet."
+    },
+    "business": {
+      "createTitle": "Add a business",
+      "name": "Business name",
+      "phone": "Phone",
+      "email": "Email (optional)",
+      "description": "Description (optional)",
+      "address": "Address (optional)",
+      "neighborhood": "Neighborhood (optional)",
+      "submit": "Create business"
+    },
+    "kyc": {
+      "title": "Business verification (KYC)",
+      "subtitle": "Submit your documents so OMNI can verify this business.",
+      "documents": "Document references",
+      "documentsHint": "One reference per line (e.g. a storage key or file name).",
+      "submit": "Submit for review",
+      "status": {
+        "NONE": "Not submitted",
+        "PENDING": "Under review",
+        "APPROVED": "Approved",
+        "REJECTED": "Rejected",
+        "REVOKED": "Revoked"
+      },
+      "rejectReason": "Reason for rejection"
+    },
+    "subscription": {
+      "title": "Premium subscription",
+      "subtitle": "Get your business CERTIFIED with an active premium subscription.",
+      "plan": "Plan",
+      "price": "Price",
+      "phoneNumber": "Mobile Money number",
+      "subscribe": "Subscribe with FedaPay",
+      "cancel": "Cancel subscription",
+      "flowPush": "A payment request was sent to your phone. Confirm it to activate your subscription.",
+      "flowCheckout": "Complete your payment on the FedaPay page that just opened.",
+      "openCheckout": "Open payment page"
+    }
+  },
+  "buyer": {
+    "explore": {
+      "title": "Explore",
+      "searchPlaceholder": "Search businesses..."
+    },
+    "businessDetails": {
+      "notFound": "This business could not be found."
+    },
+    "profile": {
+      "title": "My profile"
+    }
+  },
+  "admin": {
+    "dashboard": {
+      "title": "Admin portal",
+      "users": "Users",
+      "businesses": "Businesses",
+      "kyc": "KYC requests",
+      "subscriptions": "Subscriptions",
+      "payments": "Payments"
+    },
+    "users": {
+      "title": "Users",
+      "suspend": "Suspend",
+      "reactivate": "Reactivate",
+      "active": "Active",
+      "suspended": "Suspended"
+    },
+    "businesses": {
+      "title": "Businesses"
+    },
+    "kyc": {
+      "title": "KYC requests",
+      "approve": "Approve",
+      "reject": "Reject",
+      "rejectReasonPrompt": "Reason for rejection"
+    },
+    "subscriptions": {
+      "title": "Subscriptions"
+    },
+    "payments": {
+      "title": "Payments"
+    }
+  },
+  "delivery": {
+    "title": "Delivery"
   },
   "errors": {
     "400": {
@@ -61,6 +220,22 @@
       "goHome": "Back to home",
       "login": "Log in",
       "requestId": "Reference: {requestId}"
+    },
+    "codes": {
+      "AUTH_INVALID_CREDENTIALS": "Incorrect email or password.",
+      "AUTH_USER_DISABLED": "This account has been suspended.",
+      "AUTH_SESSION_EXPIRED": "Your session has expired. Please log in again.",
+      "AUTH_FORBIDDEN": "You don't have permission to perform this action.",
+      "USER_ALREADY_EXISTS": "An account already exists with this email.",
+      "VALIDATION_ERROR": "Some of the information provided is invalid.",
+      "BUSINESS_NOT_FOUND": "This business could not be found.",
+      "KYC_ALREADY_APPROVED": "This business is already verified.",
+      "KYC_REQUEST_NOT_FOUND": "This verification request could not be found.",
+      "SUBSCRIPTION_NOT_FOUND": "This subscription could not be found.",
+      "SUBSCRIPTION_NOT_CANCELABLE": "This subscription can no longer be canceled.",
+      "PAYMENT_FAILED": "The payment provider is currently unavailable. Please try again shortly.",
+      "PAYMENT_PLAN_UNKNOWN": "This subscription plan does not exist.",
+      "GENERIC": "Something went wrong. Please try again."
     }
   }
 }

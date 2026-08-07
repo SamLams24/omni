@@ -1,18 +1,177 @@
 {
   "common": {
     "appName": "OMNI",
-    "tagline": "Découvrez les entreprises, commerces et services autour de vous"
+    "tagline": "Découvrez les entreprises, commerces et services autour de vous",
+    "loading": "Chargement...",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "comingSoon": "Cette fonctionnalité est actuellement en cours de développement. Elle sera disponible prochainement sur OMNI."
   },
   "nav": {
     "home": "Accueil",
     "map": "Carte",
     "login": "Connexion",
-    "register": "Créer un compte"
+    "register": "Créer un compte",
+    "logout": "Déconnexion",
+    "seller": "Vendeur",
+    "buyer": "Acheteur",
+    "admin": "Admin",
+    "delivery": "Livraison"
   },
   "home": {
     "title": "Découvrez ce qui vous entoure",
     "subtitle": "OMNI vous connecte aux entreprises, commerces et services autour de votre position, en temps réel.",
     "cta": "Explorer la carte"
+  },
+  "auth": {
+    "login": {
+      "title": "Connexion",
+      "subtitle": "Content de vous revoir sur OMNI",
+      "email": "E-mail",
+      "password": "Mot de passe",
+      "submit": "Se connecter",
+      "submitting": "Connexion en cours...",
+      "noAccount": "Vous n'avez pas de compte ?",
+      "registerLink": "En créer un"
+    },
+    "register": {
+      "title": "Créez votre compte",
+      "subtitle": "Rejoignez OMNI pour découvrir les entreprises autour de vous",
+      "name": "Nom complet",
+      "email": "E-mail",
+      "password": "Mot de passe",
+      "passwordHint": "8 caractères minimum",
+      "submit": "Créer le compte",
+      "submitting": "Création du compte...",
+      "hasAccount": "Vous avez déjà un compte ?",
+      "loginLink": "Se connecter"
+    }
+  },
+  "business": {
+    "status": {
+      "UNCONFIRMED": "Non vérifiée",
+      "CONFIRMED": "Vérifiée",
+      "CERTIFIED": "Certifiée"
+    },
+    "statusDescription": {
+      "UNCONFIRMED": "Cette fiche n'a pas été vérifiée par OMNI.",
+      "CONFIRMED": "Cette entreprise a été vérifiée par OMNI.",
+      "CERTIFIED": "Cette entreprise est vérifiée et dispose d'un abonnement premium OMNI actif."
+    },
+    "source": {
+      "osm": "Depuis OpenStreetMap",
+      "omni": "Entreprise OMNI"
+    },
+    "fields": {
+      "phone": "Téléphone",
+      "address": "Adresse",
+      "website": "Site web",
+      "openingHours": "Horaires d'ouverture",
+      "category": "Catégorie"
+    }
+  },
+  "map": {
+    "title": "Carte",
+    "loading": "Chargement des lieux à proximité...",
+    "empty": "Aucun lieu trouvé dans cette zone. Essayez de dézoomer ou de déplacer la carte.",
+    "attribution": "Données cartographiques",
+    "attributionOsm": "contributeurs OpenStreetMap"
+  },
+  "seller": {
+    "dashboard": {
+      "title": "Tableau de bord vendeur",
+      "myBusinesses": "Mes entreprises",
+      "noBusinesses": "Vous n'avez pas encore d'entreprise.",
+      "createBusiness": "Ajouter une entreprise",
+      "mySubscriptions": "Mes abonnements",
+      "noSubscriptions": "Aucun abonnement pour le moment."
+    },
+    "business": {
+      "createTitle": "Ajouter une entreprise",
+      "name": "Nom de l'entreprise",
+      "phone": "Téléphone",
+      "email": "E-mail (optionnel)",
+      "description": "Description (optionnelle)",
+      "address": "Adresse (optionnelle)",
+      "neighborhood": "Quartier (optionnel)",
+      "submit": "Créer l'entreprise"
+    },
+    "kyc": {
+      "title": "Vérification de l'entreprise (KYC)",
+      "subtitle": "Envoyez vos documents pour qu'OMNI puisse vérifier cette entreprise.",
+      "documents": "Références des documents",
+      "documentsHint": "Une référence par ligne (ex. une clé de stockage ou un nom de fichier).",
+      "submit": "Envoyer pour vérification",
+      "status": {
+        "NONE": "Non soumis",
+        "PENDING": "En cours de vérification",
+        "APPROVED": "Approuvé",
+        "REJECTED": "Rejeté",
+        "REVOKED": "Révoqué"
+      },
+      "rejectReason": "Motif du rejet"
+    },
+    "subscription": {
+      "title": "Abonnement premium",
+      "subtitle": "Rendez votre entreprise CERTIFIÉE avec un abonnement premium actif.",
+      "plan": "Formule",
+      "price": "Prix",
+      "phoneNumber": "Numéro Mobile Money",
+      "subscribe": "S'abonner avec FedaPay",
+      "cancel": "Annuler l'abonnement",
+      "flowPush": "Une demande de paiement a été envoyée sur votre téléphone. Confirmez-la pour activer votre abonnement.",
+      "flowCheckout": "Terminez votre paiement sur la page FedaPay qui vient de s'ouvrir.",
+      "openCheckout": "Ouvrir la page de paiement"
+    }
+  },
+  "buyer": {
+    "explore": {
+      "title": "Explorer",
+      "searchPlaceholder": "Rechercher une entreprise..."
+    },
+    "businessDetails": {
+      "notFound": "Cette entreprise est introuvable."
+    },
+    "profile": {
+      "title": "Mon profil"
+    }
+  },
+  "admin": {
+    "dashboard": {
+      "title": "Portail admin",
+      "users": "Utilisateurs",
+      "businesses": "Entreprises",
+      "kyc": "Demandes KYC",
+      "subscriptions": "Abonnements",
+      "payments": "Paiements"
+    },
+    "users": {
+      "title": "Utilisateurs",
+      "suspend": "Suspendre",
+      "reactivate": "Réactiver",
+      "active": "Actif",
+      "suspended": "Suspendu"
+    },
+    "businesses": {
+      "title": "Entreprises"
+    },
+    "kyc": {
+      "title": "Demandes KYC",
+      "approve": "Approuver",
+      "reject": "Rejeter",
+      "rejectReasonPrompt": "Motif du rejet"
+    },
+    "subscriptions": {
+      "title": "Abonnements"
+    },
+    "payments": {
+      "title": "Paiements"
+    }
+  },
+  "delivery": {
+    "title": "Livraison"
   },
   "errors": {
     "400": {
@@ -61,6 +220,22 @@
       "goHome": "Retour à l'accueil",
       "login": "Se connecter",
       "requestId": "Référence : {requestId}"
+    },
+    "codes": {
+      "AUTH_INVALID_CREDENTIALS": "E-mail ou mot de passe incorrect.",
+      "AUTH_USER_DISABLED": "Ce compte a été suspendu.",
+      "AUTH_SESSION_EXPIRED": "Votre session a expiré. Veuillez vous reconnecter.",
+      "AUTH_FORBIDDEN": "Vous n'avez pas la permission d'effectuer cette action.",
+      "USER_ALREADY_EXISTS": "Un compte existe déjà avec cet e-mail.",
+      "VALIDATION_ERROR": "Certaines informations fournies sont invalides.",
+      "BUSINESS_NOT_FOUND": "Cette entreprise est introuvable.",
+      "KYC_ALREADY_APPROVED": "Cette entreprise est déjà vérifiée.",
+      "KYC_REQUEST_NOT_FOUND": "Cette demande de vérification est introuvable.",
+      "SUBSCRIPTION_NOT_FOUND": "Cet abonnement est introuvable.",
+      "SUBSCRIPTION_NOT_CANCELABLE": "Cet abonnement ne peut plus être annulé.",
+      "PAYMENT_FAILED": "Le fournisseur de paiement est actuellement indisponible. Veuillez réessayer sous peu.",
+      "PAYMENT_PLAN_UNKNOWN": "Ce plan d'abonnement n'existe pas.",
+      "GENERIC": "Une erreur est survenue. Veuillez réessayer."
     }
   }
 }
