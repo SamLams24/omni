@@ -1,5 +1,18 @@
 # Omni
 
+> **Repository transition in progress.** `omni-backend/` and
+> `omni-web-frontend/` have been extracted into two standalone
+> repositories, which are now the sources of truth for development and
+> deployment:
+>
+> - Frontend: https://github.com/SamLams24/omni-frontend
+> - Backend: https://github.com/SamLams24/omni-backend
+>
+> This repository (`SamLams24/omni`) remains as an archive and migration
+> reference for now. The `omni-backend/` and `omni-web-frontend/`
+> folders here are not deleted yet -- that happens in a separate,
+> later operation once the new repositories' deployments are verified.
+
 Omni is a hyperlocal discovery platform for finding businesses, services, and
 available products around a user's current location.
 
