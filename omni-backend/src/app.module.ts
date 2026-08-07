@@ -6,6 +6,8 @@ import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './infrastructure/database/prisma.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { BusinessModule } from './modules/business/business.module';
+import { MapModule } from './modules/map/map.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { PermissionsGuard } from './modules/auth/guards/permissions.guard';
@@ -23,6 +25,8 @@ import { CsrfGuard } from './common/guards/csrf.guard';
     PrismaModule,
     HealthModule,
     AuthModule,
+    BusinessModule,
+    MapModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
