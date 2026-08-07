@@ -1,4 +1,0 @@
-{
-  "buildCommand": "node __create/generate-routes.mjs && npx react-router build",
-  "outputDirectory": "build/client"
-}
