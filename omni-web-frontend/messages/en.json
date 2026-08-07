@@ -13,5 +13,54 @@
     "title": "Discover what's around you",
     "subtitle": "OMNI connects you to businesses, shops and services near your location, in real time.",
     "cta": "Explore the map"
+  },
+  "errors": {
+    "400": {
+      "title": "Invalid request",
+      "description": "The request could not be understood. Please check the information you entered and try again."
+    },
+    "401": {
+      "title": "Session expired",
+      "description": "You need to be logged in to access this page. Please log in again."
+    },
+    "403": {
+      "title": "Access denied",
+      "description": "You don't have permission to access this resource."
+    },
+    "404": {
+      "title": "Page not found",
+      "description": "The page you're looking for doesn't exist or may have been moved."
+    },
+    "409": {
+      "title": "Conflict",
+      "description": "This action conflicts with the current state of the resource. It may already exist or have changed."
+    },
+    "422": {
+      "title": "Invalid data",
+      "description": "Some of the information provided is invalid. Please review and correct it."
+    },
+    "429": {
+      "title": "Too many requests",
+      "description": "You've made too many requests in a short time. Please wait a moment and try again."
+    },
+    "500": {
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred on our end. Our team has been notified."
+    },
+    "503": {
+      "title": "Service temporarily unavailable",
+      "description": "OMNI is temporarily unavailable, possibly due to maintenance or a dependency outage. Please try again shortly."
+    },
+    "generic": {
+      "code": "Error",
+      "title": "An error occurred",
+      "description": "Something unexpected happened. Please try again."
+    },
+    "actions": {
+      "retry": "Try again",
+      "goHome": "Back to home",
+      "login": "Log in",
+      "requestId": "Reference: {requestId}"
+    }
   }
 }

@@ -13,5 +13,54 @@
     "title": "Découvrez ce qui vous entoure",
     "subtitle": "OMNI vous connecte aux entreprises, commerces et services autour de votre position, en temps réel.",
     "cta": "Explorer la carte"
+  },
+  "errors": {
+    "400": {
+      "title": "Requête invalide",
+      "description": "La requête n'a pas pu être traitée. Vérifiez les informations saisies et réessayez."
+    },
+    "401": {
+      "title": "Session expirée",
+      "description": "Vous devez être connecté pour accéder à cette page. Veuillez vous reconnecter."
+    },
+    "403": {
+      "title": "Accès refusé",
+      "description": "Vous n'avez pas la permission d'accéder à cette ressource."
+    },
+    "404": {
+      "title": "Page introuvable",
+      "description": "La page que vous recherchez n'existe pas ou a été déplacée."
+    },
+    "409": {
+      "title": "Conflit",
+      "description": "Cette action entre en conflit avec l'état actuel de la ressource. Elle existe peut-être déjà ou a changé."
+    },
+    "422": {
+      "title": "Données invalides",
+      "description": "Certaines informations fournies sont invalides. Veuillez les corriger."
+    },
+    "429": {
+      "title": "Trop de requêtes",
+      "description": "Vous avez effectué trop de requêtes en peu de temps. Veuillez patienter puis réessayer."
+    },
+    "500": {
+      "title": "Une erreur est survenue",
+      "description": "Une erreur inattendue s'est produite de notre côté. Notre équipe a été notifiée."
+    },
+    "503": {
+      "title": "Service temporairement indisponible",
+      "description": "OMNI est temporairement indisponible, probablement en raison d'une maintenance ou d'une panne d'un service externe. Veuillez réessayer sous peu."
+    },
+    "generic": {
+      "code": "Erreur",
+      "title": "Une erreur est survenue",
+      "description": "Un problème inattendu s'est produit. Veuillez réessayer."
+    },
+    "actions": {
+      "retry": "Réessayer",
+      "goHome": "Retour à l'accueil",
+      "login": "Se connecter",
+      "requestId": "Référence : {requestId}"
+    }
   }
 }
