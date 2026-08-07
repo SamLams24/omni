@@ -10,6 +10,7 @@ import { BusinessModule } from './modules/business/business.module';
 import { MapModule } from './modules/map/map.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { KycModule } from './modules/kyc/kyc.module';
+import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { PermissionsGuard } from './modules/auth/guards/permissions.guard';
@@ -31,6 +32,7 @@ import { CsrfGuard } from './common/guards/csrf.guard';
     MapModule,
     PaymentModule,
     KycModule,
+    SubscriptionModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
