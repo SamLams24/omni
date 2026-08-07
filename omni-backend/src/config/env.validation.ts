@@ -41,6 +41,13 @@ export const envSchema = z.object({
 
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('debug'),
   SWAGGER_ENABLED: z.stringbool().default(true),
+
+  // Auth0/OIDC -- optional: social login is scaffolded but non-functional
+  // without real tenant credentials. See docs/api/authentication.md.
+  AUTH0_DOMAIN: z.string().optional(),
+  AUTH0_CLIENT_ID: z.string().optional(),
+  AUTH0_CLIENT_SECRET: z.string().optional(),
+  AUTH0_CALLBACK_URL: z.url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

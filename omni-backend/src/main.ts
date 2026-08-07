@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import type { Env } from './config/env.validation';
@@ -13,6 +14,7 @@ async function bootstrap() {
   const config = app.get(ConfigService<Env, true>);
 
   app.use(helmet());
+  app.use(cookieParser());
   app.enableCors({
     origin: config
       .get('CORS_ORIGINS', { infer: true })
@@ -44,7 +46,7 @@ async function bootstrap() {
           'OMNI backend -- businesses, KYC, subscriptions, payments',
         )
         .setVersion(config.get('API_VERSION', { infer: true }))
-        .addCookieAuth('omni_session')
+        .addCookieAuth('omni_access')
         .build(),
     );
     SwaggerModule.setup('docs', app, document);
