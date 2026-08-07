@@ -34,14 +34,18 @@ DATABASE_URL=postgresql://postgres:CHANGE_ME@localhost:5432/omni_dev?schema=publ
 
 Remplacez `CHANGE_ME` par le mot de passe réellement configuré pour l'utilisateur `postgres` local. Ne committez jamais ce fichier `.env` (déjà exclu par `.gitignore`).
 
-## Note PostGIS
+## Note PostGIS (actuellement non installé)
 
-Le champ `Business.location` du schéma Prisma est déclaré `Unsupported("geography(Point,4326)")` — Prisma n'a pas de type géographique natif. Les requêtes de proximité (recherche par rayon) passent par `$queryRaw` (`ST_DWithin`, `ST_Distance`), exactement comme le fait `apps/web/src/app/api/discovery/discovery-service.js` aujourd'hui.
+Contrairement au plan initial (`Unsupported("geography(Point,4326)")`), le champ `Business.latitude`/`Business.longitude` est un simple `Decimal` — voir `docs/architecture/ADR-005-no-postgis-local.md`. En pratique sur cette machine, `CREATE EXTENSION postgis;` échoue car les fichiers de l'extension ne sont pas installés avec PostgreSQL 17 (pas juste désactivés) :
 
-Si vous testez des requêtes géospatiales localement, activez l'extension PostGIS dans `omni_dev` :
+```
+Could not open extension control file ".../share/extension/postgis.control"
+```
+
+Pour installer PostGIS sur Windows : utilisez **Stack Builder** (fourni avec l'installeur PostgreSQL officiel, menu Démarrer → "Application Stack Builder"), sélectionnez votre instance PostgreSQL, puis "Spatial Extensions" → PostGIS. Nécessite des droits administrateur. Une fois installé :
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS postgis;
 ```
 
-Prisma Migrate ne gère pas la création d'extensions — voir `docs/setup/database-migrations.md`.
+Prisma Migrate ne gère pas la création d'extensions — cette commande doit être exécutée manuellement avant toute migration qui en dépendrait.

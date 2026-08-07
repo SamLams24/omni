@@ -74,6 +74,10 @@ pnpm typecheck
 pnpm lint
 ```
 
+## Note : `argon2` remplacé par `@node-rs/argon2`
+
+Le paquet `argon2` (binding natif classique) plante systématiquement (violation d'accès / segfault) sur cette machine de développement, même après réinstallation complète — un problème d'environnement, pas de cache corrompu. Remplacé par `@node-rs/argon2` (napi-rs), qui utilise également Argon2id par défaut et fonctionne correctement ici. Si `@node-rs/argon2` pose problème sur une autre machine, `argon2-browser` (WASM, sans binding natif) est la solution de repli la plus fiable.
+
 ## État de la migration
 
 Cette fondation (Lot 1) ne contient **aucune fonctionnalité métier** — pas d'authentification fonctionnelle, pas d'entreprises, pas de KYC réel exposé via l'API. Voir `docs/architecture/migration-plan.md` pour le séquencement des lots suivants et `docs/architecture/feature-matrix.md` pour l'état exact de chaque module.
