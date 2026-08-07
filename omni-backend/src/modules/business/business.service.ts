@@ -51,6 +51,14 @@ export class BusinessService {
     return businesses.map((business) => toBusinessDto(business));
   }
 
+  async listAll(): Promise<BusinessDto[]> {
+    const businesses = await this.prisma.business.findMany({
+      include: { subscriptions: { select: SUBSCRIPTION_SELECT } },
+      orderBy: { createdAt: 'desc' },
+    });
+    return businesses.map((business) => toBusinessDto(business));
+  }
+
   async create(userId: string, dto: CreateBusinessDto): Promise<BusinessDto> {
     const business = await this.prisma.business.create({
       data: {

@@ -36,6 +36,15 @@ export class BusinessController {
     return this.businessService.listOwnedBy(user.sub);
   }
 
+  @Permissions('businesses.read')
+  @Get('admin/all')
+  @ApiOperation({
+    summary: 'List every business regardless of location (admin)',
+  })
+  listAllForAdmin() {
+    return this.businessService.listAll();
+  }
+
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get a single business by id' })

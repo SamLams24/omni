@@ -39,6 +39,16 @@ export class PaymentService {
     private readonly config: ConfigService,
   ) {}
 
+  listAll() {
+    return this.prisma.payment.findMany({
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        plan: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async initiateSubscriptionPayment(
     userId: string,
     dto: CreateSubscriptionPaymentDto,
