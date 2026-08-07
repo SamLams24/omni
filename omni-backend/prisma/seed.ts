@@ -187,10 +187,10 @@ async function main() {
 
   // --- Subscription plan (for the FedaPay payment flow, Payment model) ---
   const premiumPlan = await prisma.subscriptionPlan.upsert({
-    where: { id: '00000000-0000-0000-0000-0000000000f1' },
+    where: { id: 'f0000000-0000-4000-8000-0000000000f1' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0000-0000000000f1',
+      id: 'f0000000-0000-4000-8000-0000000000f1',
       tier: 'PREMIUM',
       name: 'Premium mensuel',
       priceAmount: '5000',
@@ -205,10 +205,10 @@ async function main() {
 
   // 1. UNCONFIRMED: no KYC submitted yet.
   await prisma.business.upsert({
-    where: { id: '00000000-0000-0000-0000-000000000001' },
+    where: { id: '10000000-0000-4000-8000-000000000001' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0000-000000000001',
+      id: '10000000-0000-4000-8000-000000000001',
       name: 'Boutique Non Vérifiée (démo)',
       categoryId: categories[0]?.id,
       phone: '+22890000001',
@@ -221,10 +221,10 @@ async function main() {
 
   // 2. CONFIRMED: KYC approved, no active subscription.
   const verifiedBusiness = await prisma.business.upsert({
-    where: { id: '00000000-0000-0000-0000-000000000002' },
+    where: { id: '20000000-0000-4000-8000-000000000002' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0000-000000000002',
+      id: '20000000-0000-4000-8000-000000000002',
       name: 'Atelier Vérifié (démo)',
       categoryId: categories[2]?.id,
       phone: '+22890000002',
@@ -247,10 +247,10 @@ async function main() {
 
   // 3. CERTIFIED: KYC approved AND an active, paid premium subscription.
   const certifiedBusiness = await prisma.business.upsert({
-    where: { id: '00000000-0000-0000-0000-000000000003' },
+    where: { id: '30000000-0000-4000-8000-000000000003' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0000-000000000003',
+      id: '30000000-0000-4000-8000-000000000003',
       name: 'Marché Certifié (démo)',
       categoryId: categories[1]?.id,
       phone: '+22890000003',

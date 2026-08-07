@@ -10,7 +10,12 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import type { Env } from './config/env.validation';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: true keeps the exact request bytes available on req.rawBody
+  // for FedaPay webhook signature verification -- the global JSON body
+  // parser would otherwise re-serialize the payload before it reaches the
+  // controller, and a re-serialized body doesn't hash to the same
+  // signature FedaPay computed over the original bytes.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService<Env, true>);
 
   app.use(helmet());
