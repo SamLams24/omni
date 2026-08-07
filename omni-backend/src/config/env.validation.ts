@@ -15,6 +15,10 @@ export const envSchema = z.object({
   API_VERSION: z.string().default('v1'),
 
   DATABASE_URL: z.url(),
+  // Defaults to DATABASE_URL locally (a single plain Postgres instance
+  // has no pooled/direct distinction); Neon production sets this to the
+  // unpooled connection string. See docs/deployment-neon.md.
+  DIRECT_URL: z.url().optional(),
 
   FRONTEND_URL: z.url(),
   CORS_ORIGINS: z.string().min(1),
@@ -48,6 +52,7 @@ export const envSchema = z.object({
   AUTH0_CLIENT_ID: z.string().optional(),
   AUTH0_CLIENT_SECRET: z.string().optional(),
   AUTH0_CALLBACK_URL: z.url().optional(),
+  AUTH0_AUDIENCE: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

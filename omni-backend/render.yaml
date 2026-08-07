@@ -1,0 +1,48 @@
+# Render Blueprint. This declares the service shape for reproducibility;
+# it does not create the service by itself and does not set secrets --
+# every environment variable below with no `value` must be filled in
+# manually in the Render dashboard after the service is created (or via
+# `sync: false` fields, which Render always prompts for interactively).
+# See docs/deployment-render.md for the full variable reference.
+services:
+  - type: web
+    name: omni-backend
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    buildCommand: pnpm install --frozen-lockfile && pnpm prisma:generate && pnpm build
+    preDeployCommand: pnpm prisma:migrate:deploy
+    startCommand: pnpm start:prod
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAME_SITE
+        value: lax
+      - key: FEDAPAY_ENVIRONMENT
+        value: sandbox
+      - key: FEDAPAY_SECRET_KEY
+        sync: false
+      - key: FEDAPAY_PUBLIC_KEY
+        sync: false
+      - key: FEDAPAY_WEBHOOK_SECRET
+        sync: false
+      - key: SWAGGER_ENABLED
+        value: "false"
+      - key: LOG_LEVEL
+        value: info

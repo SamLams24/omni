@@ -19,9 +19,17 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Neon (and other pooled Postgres providers) need two connection strings:
+// DATABASE_URL is the pooled endpoint the running app uses for queries;
+// DIRECT_URL is the unpooled endpoint Prisma Migrate/CLI needs, since
+// schema migrations don't work reliably through a transaction-mode
+// pooler (PgBouncer). Locally, both env vars simply point at the same
+// plain PostgreSQL instance -- see docs/deployment-neon.md for the
+// production values.
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------
